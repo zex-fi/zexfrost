@@ -5,7 +5,10 @@ description = "This is the ZEX implementation of FROST utilizing zcash implement
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "frost-lib",
+    "httpx>=0.28.1",
     "pydantic~=2.10.6",
+    "pydantic-settings~=2.9",
 ]
 
 [tool.commitizen]
@@ -22,6 +25,9 @@ dev = [
     "pre-commit~=4.0.1",
     "pyright>=1.1.394",
     "ruff>=0.9.6",
+]
+test = [
+    "pytest~=8.3.5",
 ]
 [tool.ruff]
 exclude = [
@@ -65,3 +71,6 @@ convention = "google"
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
+
+[tool.uv.sources]
+frost-lib = { path = "../frost-lib-maturin/frost-lib" }
