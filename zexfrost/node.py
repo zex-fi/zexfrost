@@ -1,0 +1,23 @@
+from zexfrost.custom_types import Node
+from zexfrost.repository import KeyRepository, NonceRepository
+
+
+class NodeHandler:
+    def __init__(self, node: Node, nonce_repository: NonceRepository, key_repository: KeyRepository):
+        self.node = node
+        self.nonce_repository = nonce_repository
+        self.key_repository = key_repository
+
+    def round1(self): ...
+
+    def round2(self): ...
+
+    def round3(self): ...
+
+    def sign(self): ...
+
+    def generate_nonce(self): ...
+
+    def annulment(self): ...
+
+    def reveal(self): ...
