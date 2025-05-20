@@ -9,7 +9,7 @@ from zexfrost.custom_types import (
     DKGPart2Package,
     DKGPart2Result,
     DKGRound1NodeResponse,
-    DKGRound2NodeResponse,
+    DKGRound2EncryptedPackage,
     HexStr,
     Node,
     NodeID,
@@ -19,6 +19,7 @@ from zexfrost.key import Key
 from zexfrost.node.settings import NodeSettings
 from zexfrost.repository import DKGRepository
 from zexfrost.utils import (
+    decrypt_with_joint_key,
     encrypt_with_joint_key,
     get_curve,
     single_sign_data,
@@ -149,7 +150,7 @@ class DKG:
 
     def _preparing_round2_response(
         self, partners_temp_public_key: dict[NodeID, HexStr], round2_package: dict[NodeID, DKGPart2Package]
-    ) -> DKGRound2NodeResponse:
+    ) -> DKGRound2EncryptedPackage:
         result = {}
         for node in self.partners:
             data_to_encrypt = json.dumps(round2_package[node.id].model_dump(mode="python"), sort_keys=True)
@@ -158,13 +159,13 @@ class DKG:
                 self.temp_key._private_key,
                 partners_temp_public_key[node.id],
             )
-        return DKGRound2NodeResponse(encrypted_package=result)
+        return DKGRound2EncryptedPackage(encrypted_package=result)
 
-    def round2(self, broadcast_data: dict[NodeID, DKGRound1NodeResponse]) -> DKGRound2NodeResponse:
+    def round2(self, broadcast_data: dict[NodeID, DKGRound1NodeResponse]) -> DKGRound2EncryptedPackage:
+        assert self.round1_result is not None, "round1 is not done yet"
         self.validate_broadcast_data(broadcast_data)
         self.partners_temp_public_key = self._parse_partners_temp_public_key(broadcast_data)
         self.partners_round1_packages = {node_id: node_resp.package for node_id, node_resp in broadcast_data.items()}
-        assert self.round1_result is not None
         result = self.curve.dkg_part2(
             self.round1_result.secret_package,
             {node_id: other_node_round1_result.package for node_id, other_node_round1_result in broadcast_data.items()},
@@ -173,4 +174,23 @@ class DKG:
         self.store_dkg_object()
         return self._preparing_round2_response(self.partners_temp_public_key, self.round2_result.packages)
 
-    def round3(self, round3_data): ...
+    def _decrypt_round2_package(
+        self, partner_temp_public_key: dict[NodeID, HexStr], encrypted_package: DKGRound2EncryptedPackage
+    ) -> dict[NodeID, DKGPart2Package]:
+        result = {}
+        for node_id, encrypted_data in encrypted_package.encrypted_package.items():
+            decrypted_package = decrypt_with_joint_key(
+                encrypted_data, self.temp_key._private_key, partner_temp_public_key[node_id]
+            )
+            decrypted_package = json.loads(decrypted_package)
+            decrypted_package = DKGPart2Package(**decrypted_package)
+            result[node_id] = decrypted_package
+        return result
+
+    def round3(self, round3_data: DKGRound2EncryptedPackage):
+        assert self.round2_result is not None, "round2 is not done yet"
+        assert self.partners_round1_packages is not None, "round2 is not done yet"
+        assert self.partners_temp_public_key is not None, "round2 is not done yet"
+        round2_package = self._decrypt_round2_package(self.partners_temp_public_key, round3_data)
+        result = self.curve.dkg_part3(self.round2_result.secret_package, self.partners_round1_packages, round2_package)
+        return result

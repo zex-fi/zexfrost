@@ -8,7 +8,7 @@ from zexfrost.custom_types import (
     BaseCryptoModule,
     DKGId,
     DKGRound1NodeResponse,
-    DKGRound2NodeResponse,
+    DKGRound2EncryptedPackage,
     Node,
     NodeID,
 )
@@ -71,9 +71,9 @@ class DKG:
         for node in self.party:
             self.repository.set(f"{self.id}-{node.id}-round1", party_result[node.id].model_dump(mode="python"))
 
-    def store_round2_result(
-        self,
-    ): ...
+    def store_round2_result(self, party_result: dict[NodeID, DKGRound2EncryptedPackage]) -> None:
+        for node in self.party:
+            self.repository.set(f"{self.id}-{node.id}-round2", party_result[node.id].model_dump(mode="python"))
 
     def _round2_data_parsing(
         self, node: Node, round1_result: dict[NodeID, DKGRound1NodeResponse]
@@ -85,22 +85,48 @@ class DKG:
             data[other_node_id] = other_node_response.model_dump(mode="python")
         return data
 
-    async def _round2_pre_node(
+    async def _round2_per_node(
         self, node: Node, round1_result: dict[NodeID, DKGRound1NodeResponse]
-    ) -> DKGRound2NodeResponse:
+    ) -> DKGRound2EncryptedPackage:
         data = self._round2_data_parsing(node, round1_result)
         res = await self._send_request(
             "POST",
             f"{node.url}/dkg/round2",
             json=data,
         )
-        return DKGRound2NodeResponse.model_validate(res.json())
+        return DKGRound2EncryptedPackage.model_validate(res.json())
 
-    async def round2(self, round1_result: dict[NodeID, DKGRound1NodeResponse]) -> dict[NodeID, DKGRound2NodeResponse]:
-        tasks = {node.id: asyncio.create_task(self._round2_pre_node(node, round1_result)) for node in self.party}
+    async def round2(
+        self, round1_result: dict[NodeID, DKGRound1NodeResponse]
+    ) -> dict[NodeID, DKGRound2EncryptedPackage]:
+        tasks = {node.id: asyncio.create_task(self._round2_per_node(node, round1_result)) for node in self.party}
         return {node_id: (await task) for node_id, task in tasks.items()}
 
-    def round3(self): ...
+    def _round3_data_parsing(
+        self, node: Node, round2_result: dict[NodeID, DKGRound2EncryptedPackage]
+    ) -> DKGRound2EncryptedPackage:
+        return DKGRound2EncryptedPackage(
+            encrypted_package={
+                other_node_id: other_node_response.encrypted_package[node.id]
+                for other_node_id, other_node_response in round2_result.items()
+                if node.id != other_node_id
+            }
+        )
+
+    async def _round3_per_node(
+        self, node: Node, round2_result: dict[NodeID, DKGRound2EncryptedPackage]
+    ) -> DKGRound2EncryptedPackage:
+        data = self._round3_data_parsing(node, round2_result)
+        res = await self._send_request(
+            "POST",
+            f"{node.url}/dkg/round3",
+            json=data,
+        )
+        return DKGRound2EncryptedPackage.model_validate(res.json())
+
+    async def round3(self, round2_result: dict[NodeID, DKGRound2EncryptedPackage]):
+        tasks = {node.id: asyncio.create_task(self._round3_per_node(node, round2_result)) for node in self.party}
+        return {node_id: (await task) for node_id, task in tasks.items()}
 
     def annulment(self) -> AnnulmentData: ...
 
@@ -110,8 +136,9 @@ class DKG:
         round1_result = await self.round1()
         self.validate_round1_result(round1_result)
         self.store_round1_result(round1_result)
-        await self.round2(round1_result)
-        self.round3()
+        round2_result = await self.round2(round1_result)
+        self.store_round2_result(round2_result)
+        await self.round3(round2_result)
 
 
 async def main(dkg: DKG):
