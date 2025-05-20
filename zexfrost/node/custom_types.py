@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from zexfrost.custom_types import HexStr, NodeId
+from zexfrost.custom_types import HexStr, NodeID
 
 
 class DKGRepositoryValue(TypedDict):
@@ -9,4 +9,5 @@ class DKGRepositoryValue(TypedDict):
     partners: tuple[dict, ...]
     round1_result: dict | None
     round2_result: dict | None
-    partners_temp_public_key: dict[NodeId, HexStr] | None
+    partners_temp_public_key: dict[NodeID, HexStr] | None
+    partners_round1_packages: dict[NodeID, dict] | None

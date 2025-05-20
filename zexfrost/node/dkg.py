@@ -1,19 +1,29 @@
+import json
+
 from frost_lib.wrapper import BaseCryptoModule
 
 from zexfrost.custom_types import (
     DKGId,
+    DKGPart1Package,
     DKGPart1Result,
+    DKGPart2Package,
     DKGPart2Result,
     DKGRound1NodeResponse,
+    DKGRound2NodeResponse,
     HexStr,
-    Key,
     Node,
-    NodeId,
+    NodeID,
 )
 from zexfrost.exceptions import DKGNotFoundError
+from zexfrost.key import Key
 from zexfrost.node.settings import NodeSettings
 from zexfrost.repository import DKGRepository
-from zexfrost.utils import get_curve, single_sign_data, single_verify_data
+from zexfrost.utils import (
+    encrypt_with_joint_key,
+    get_curve,
+    single_sign_data,
+    single_verify_data,
+)
 
 from .custom_types import DKGRepositoryValue
 
@@ -29,7 +39,8 @@ class DKG:
         temp_key: Key | None = None,
         round1_result: DKGPart1Result | None = None,
         round2_result: DKGPart2Result | None = None,
-        partners_temp_public_key: dict[NodeId, HexStr] | None = None,
+        partners_temp_public_key: dict[NodeID, HexStr] | None = None,
+        partners_round1_packages: dict[NodeID, DKGPart1Package] | None = None,
     ):
         self.settings = settings
         self.curve = curve
@@ -39,6 +50,7 @@ class DKG:
         self.partners = tuple(filter(lambda node: node.id != settings.ID, party))
         self.round1_result = round1_result
         self.round2_result = round2_result
+        self.partners_round1_packages = partners_round1_packages
         self.partners_temp_public_key = partners_temp_public_key
 
     def __eq__(self, other: object) -> bool:
@@ -54,6 +66,7 @@ class DKG:
             and self.round1_result == other.round1_result
             and self.round2_result == other.round2_result
             and self.partners_temp_public_key == other.partners_temp_public_key
+            and self.partners_round1_packages == other.partners_round1_packages
         )
 
     @classmethod
@@ -80,6 +93,11 @@ class DKG:
             if load_data["round2_result"] is None
             else DKGPart2Result.model_validate(load_data["round2_result"]),
             partners_temp_public_key=dkg_data["partners_temp_public_key"],
+            partners_round1_packages=None
+            if dkg_data["partners_round1_packages"] is None
+            else {
+                node_id: DKGPart1Package(**package) for node_id, package in dkg_data["partners_round1_packages"].items()
+            },
         )
 
     def store_dkg_object(self):
@@ -90,6 +108,11 @@ class DKG:
             "round1_result": self.round1_result and self.round1_result.model_dump(mode="python"),
             "round2_result": self.round2_result and self.round2_result.model_dump(mode="python"),
             "partners_temp_public_key": self.partners_temp_public_key,
+            "partners_round1_packages": self.partners_round1_packages
+            if self.partners_round1_packages is None
+            else {
+                node_id: package.model_dump(mode="python") for node_id, package in self.partners_round1_packages.items()
+            },
         }
         self.repository.set(self.id.hex, store_data)
 
@@ -105,34 +128,49 @@ class DKG:
             signature=signature,
         )
 
-    def validate_broadcast_data(self, data: dict[NodeId, DKGRound1NodeResponse]):
+    def validate_broadcast_data(self, data: dict[NodeID, DKGRound1NodeResponse]):
         result = {}
         for node in self.partners:
             node_result = data[node.id]
-            data = node_result.model_dump(mode="python", exclude={"signature"})
-            result[node.id] = single_verify_data(node.curve_name, node.public_key, data, node_result.signature)
+            verifying_data = node_result.model_dump(mode="python", exclude={"signature"})
+            result[node.id] = single_verify_data(
+                node.curve_name, node.public_key, verifying_data, node_result.signature
+            )
 
         assert all(result.values()), result
 
     def _parse_partners_temp_public_key(
-        self, broadcast_data: dict[NodeId, DKGRound1NodeResponse]
-    ) -> dict[NodeId, HexStr]:
+        self, broadcast_data: dict[NodeID, DKGRound1NodeResponse]
+    ) -> dict[NodeID, HexStr]:
         return {
             node_id: other_node_round1_result.temp_public_key
             for node_id, other_node_round1_result in broadcast_data.items()
         }
 
-    def round2(self, broadcast_data: dict[NodeId, DKGRound1NodeResponse]):
+    def _preparing_round2_response(
+        self, partners_temp_public_key: dict[NodeID, HexStr], round2_package: dict[NodeID, DKGPart2Package]
+    ) -> DKGRound2NodeResponse:
+        result = {}
+        for node in self.partners:
+            data_to_encrypt = json.dumps(round2_package[node.id].model_dump(mode="python"), sort_keys=True)
+            result[node.id] = encrypt_with_joint_key(
+                data_to_encrypt,
+                self.temp_key._private_key,
+                partners_temp_public_key[node.id],
+            )
+        return DKGRound2NodeResponse(encrypted_package=result)
+
+    def round2(self, broadcast_data: dict[NodeID, DKGRound1NodeResponse]) -> DKGRound2NodeResponse:
         self.validate_broadcast_data(broadcast_data)
         self.partners_temp_public_key = self._parse_partners_temp_public_key(broadcast_data)
+        self.partners_round1_packages = {node_id: node_resp.package for node_id, node_resp in broadcast_data.items()}
         assert self.round1_result is not None
         result = self.curve.dkg_part2(
             self.round1_result.secret_package,
             {node_id: other_node_round1_result.package for node_id, other_node_round1_result in broadcast_data.items()},
         )
         self.round2_result = result
-
         self.store_dkg_object()
-        return result
+        return self._preparing_round2_response(self.partners_temp_public_key, self.round2_result.packages)
 
     def round3(self, round3_data): ...

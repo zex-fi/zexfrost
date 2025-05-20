@@ -5,14 +5,11 @@ from frost_lib.types import DKGPart1Package, DKGPart1Result, DKGPart2Package, DK
 from frost_lib.wrapper import BaseCryptoModule
 from pydantic import BaseModel, HttpUrl, computed_field
 
-from zexfrost.utils import get_curve, single_sign_data
-
-type NodeId = HexStr
+type NodeID = HexStr
 type DKGId = UUID
 
 
 __all__ = [
-    "Key",
     "Node",
     "DKGRound1NodeResponse",
     "DKGRound2NodeResponse",
@@ -20,29 +17,13 @@ __all__ = [
     "DKGPart1Result",
     "DKGPart2Result",
     "DKGPart3Result",
+    "DKGPart2Package",
+    "BaseCryptoModule",
 ]
 
 
-class Key:
-    def __init__(self, curve: BaseCryptoModule | str, private_key: HexStr):
-        self._private_key = private_key
-        self._curve = get_curve(curve)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Key):
-            return False
-        return self._private_key == other._private_key and self._curve.curve_name == other._curve.curve_name
-
-    @property
-    def public_key(self) -> HexStr:
-        return self._curve.get_pubkey(self._private_key)
-
-    def sign_data(self, data: bytes | dict) -> HexStr:
-        return single_sign_data(self._curve, self._private_key, data)
-
-
 class Node(BaseModel):
-    id: NodeId
+    id: NodeID
     host: HttpUrl
     port: int
     public_key: HexStr
@@ -61,8 +42,7 @@ class DKGRound1NodeResponse(BaseModel):
 
 
 class DKGRound2NodeResponse(BaseModel):
-    package: DKGPart2Package
-    encrypted_data: dict[NodeId, HexStr]
+    encrypted_package: dict[NodeID, str]
 
 
 class AnnulmentData(BaseModel): ...
