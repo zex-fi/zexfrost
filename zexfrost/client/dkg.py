@@ -10,7 +10,7 @@ from zexfrost.custom_types import (
     DKGRound1NodeResponse,
     DKGRound2NodeResponse,
     Node,
-    NodeId,
+    NodeID,
 )
 from zexfrost.repository import DKGRepository
 from zexfrost.utils import single_verify_data
@@ -43,7 +43,7 @@ class DKG:
     async def _send_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         return await self.http_client.request(method, url, **kwargs)
 
-    async def round1(self) -> dict[NodeId, DKGRound1NodeResponse]:
+    async def round1(self) -> dict[NodeID, DKGRound1NodeResponse]:
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
@@ -58,7 +58,7 @@ class DKG:
         result = {node_id: DKGRound1NodeResponse(**(await task).json()) for node_id, task in tasks.items()}
         return result
 
-    def validate_round1_result(self, party_result: dict[NodeId, DKGRound1NodeResponse]):
+    def validate_round1_result(self, party_result: dict[NodeID, DKGRound1NodeResponse]):
         result = {}
         for node in self.party:
             node_result = party_result[node.id]
@@ -67,7 +67,7 @@ class DKG:
 
         assert all(result.values()), result
 
-    def store_round1_result(self, party_result: dict[NodeId, DKGRound1NodeResponse]) -> None:
+    def store_round1_result(self, party_result: dict[NodeID, DKGRound1NodeResponse]) -> None:
         for node in self.party:
             self.repository.set(f"{self.id}-{node.id}-round1", party_result[node.id].model_dump(mode="python"))
 
@@ -76,8 +76,8 @@ class DKG:
     ): ...
 
     def _round2_data_parsing(
-        self, node: Node, round1_result: dict[NodeId, DKGRound1NodeResponse]
-    ) -> dict[NodeId, dict]:
+        self, node: Node, round1_result: dict[NodeID, DKGRound1NodeResponse]
+    ) -> dict[NodeID, dict]:
         data = {}
         for other_node_id, other_node_response in round1_result.items():
             if node.id == other_node_id:
@@ -86,7 +86,7 @@ class DKG:
         return data
 
     async def _round2_pre_node(
-        self, node: Node, round1_result: dict[NodeId, DKGRound1NodeResponse]
+        self, node: Node, round1_result: dict[NodeID, DKGRound1NodeResponse]
     ) -> DKGRound2NodeResponse:
         data = self._round2_data_parsing(node, round1_result)
         res = await self._send_request(
@@ -96,7 +96,7 @@ class DKG:
         )
         return DKGRound2NodeResponse.model_validate(res.json())
 
-    async def round2(self, round1_result: dict[NodeId, DKGRound1NodeResponse]) -> dict[NodeId, DKGRound2NodeResponse]:
+    async def round2(self, round1_result: dict[NodeID, DKGRound1NodeResponse]) -> dict[NodeID, DKGRound2NodeResponse]:
         tasks = {node.id: asyncio.create_task(self._round2_pre_node(node, round1_result)) for node in self.party}
         return {node_id: (await task) for node_id, task in tasks.items()}
 

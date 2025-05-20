@@ -3,7 +3,8 @@ from uuid import uuid4
 import pytest
 from frost_lib import secp256k1_tr
 
-from zexfrost.custom_types import Key, Node
+from zexfrost.custom_types import Node
+from zexfrost.key import Key
 from zexfrost.node.dkg import DKG
 from zexfrost.node.settings import NodeSettings
 from zexfrost.utils import single_verify_data
