@@ -5,6 +5,7 @@ description = "This is the ZEX implementation of FROST utilizing zcash implement
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastecdsa~=3.0.1",
     "frost-lib",
     "httpx>=0.28.1",
     "pydantic~=2.10.6",

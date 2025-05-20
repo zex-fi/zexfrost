@@ -62,7 +62,7 @@ class DKG:
         result = {}
         for node in self.party:
             node_result = party_result[node.id]
-            data = node.model_dump(mode="python", exclude={"signature"})
+            data = node_result.model_dump(mode="python", exclude={"signature"})
             result[node.id] = single_verify_data(node.curve_name, node.public_key, data, node_result.signature)
 
         assert all(result.values()), result

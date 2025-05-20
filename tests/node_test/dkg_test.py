@@ -50,13 +50,13 @@ def dkg(dkg_repo):
     return dkg
 
 
-def store_and_load_dkg_round1_test(dkg: DKG):
+def test_store_and_load_dkg_round1(dkg: DKG):
     dkg.store_dkg_object()
     dkg2 = DKG.load_dkg_object(dkg.settings, dkg.id, dkg.repository)
     assert dkg == dkg2
 
 
-def signing_and_verifying_dkg_round1_test(dkg: DKG):
+def test_signing_and_verifying_dkg_round1(dkg: DKG):
     result = dkg.round1(3, 2)
     data = result.model_dump(mode="python", exclude={"signature"})
     main_key = Key(dkg.settings.CURVE_NAME, dkg.settings.PRIVATE_KEY)
