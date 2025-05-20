@@ -12,7 +12,7 @@ type DKGId = UUID
 __all__ = [
     "Node",
     "DKGRound1NodeResponse",
-    "DKGRound2NodeResponse",
+    "DKGRound2EncryptedPackage",
     "AnnulmentData",
     "DKGPart1Result",
     "DKGPart2Result",
@@ -41,7 +41,7 @@ class DKGRound1NodeResponse(BaseModel):
     signature: HexStr
 
 
-class DKGRound2NodeResponse(BaseModel):
+class DKGRound2EncryptedPackage(BaseModel):
     encrypted_package: dict[NodeID, str]
 
 
