@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from frost_lib.types import DKGPart1Package, DKGPart1Result, DKGPart2Result, DKGPart3Result, HexStr
+from frost_lib.types import DKGPart1Package, DKGPart1Result, DKGPart2Package, DKGPart2Result, DKGPart3Result, HexStr
 from frost_lib.wrapper import BaseCryptoModule
 from pydantic import BaseModel, HttpUrl, computed_field
 
@@ -60,7 +60,9 @@ class DKGRound1NodeResponse(BaseModel):
     signature: HexStr
 
 
-class DKGRound2NodeResponse(BaseModel): ...
+class DKGRound2NodeResponse(BaseModel):
+    package: DKGPart2Package
+    encrypted_data: dict[NodeId, HexStr]
 
 
 class AnnulmentData(BaseModel): ...
