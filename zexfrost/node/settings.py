@@ -14,3 +14,6 @@ class NodeSettings(BaseApplicationSettings):
     ID: HexStr
     CURVE_NAME: Literal["secp256k1_tr"] = Field(default="secp256k1_tr", frozen=True)
     PRIVATE_KEY: HexStr
+
+
+node_settings = NodeSettings.model_validate({})
