@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "DKGID",
         "Fernet",
         "HKDF",
+        "VALUET",
         "zexfrost"
     ],
     "python.testing.pytestArgs": [

@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "cryptography~=45.0.2",
+    "fastapi>=0.115.12",
     "fastecdsa~=3.0.1",
     "frost-lib",
     "httpx>=0.28.1",
@@ -28,9 +29,7 @@ dev = [
     "pyright>=1.1.394",
     "ruff>=0.9.6",
 ]
-test = [
-    "pytest~=8.3.5",
-]
+test = ["pytest~=8.3.5"]
 [tool.ruff]
 exclude = [
     ".git",
@@ -67,6 +66,10 @@ select = [
 fixable = ["ALL"]
 unfixable = []
 
+[tool.ruff.lint.mccabe]
+max-complexity = 15 # TODO: we should reduce this since it will cause non-readable code
+
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -75,4 +78,4 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 
 [tool.uv.sources]
-frost-lib = { path = "../frost-lib-maturin/frost-lib" }
+frost-lib = { git = "https://github.com/sadeghte/frost-lib", rev = "feature/add-maturin" }
