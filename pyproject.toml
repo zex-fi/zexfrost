@@ -1,6 +1,6 @@
 [project]
 name = "zexfrost"
-version = "0.1.0"
+version = "0.2.0"
 description = "This is the ZEX implementation of FROST utilizing zcash implementation as the cryptography layer"
 readme = "README.md"
 requires-python = ">=3.12"

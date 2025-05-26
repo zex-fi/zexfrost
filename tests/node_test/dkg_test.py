@@ -185,21 +185,22 @@ def test_dkg():
             nonce_repo=nonce_repository,
             tweak_by=tweak_by,
         )
-    message = b"message".hex()
-    signing = secp256k1_tr.signing_package_new(commitments, message)
+    message = b"message"
     signs = {}
     for node in party:
         signs[node.id] = sign(
             curve=secp256k1_tr,
+            node_id=dkgs[node.id].settings.ID,
             pubkey_package=pubkey_package,
             key_repo=key_repositories[node.id],
-            signing_package=signing,
+            message=message,
             nonce_repo=nonce_repository,
-            commitment=commitments[node.id],
+            commitments=commitments,
             tweak_by=tweak_by,
         )
+    signing = secp256k1_tr.signing_package_new(commitments, message.hex())
     tweaked_pubkey_package = secp256k1_tr.pubkey_package_tweak(pubkey_package, tweak_by)
     signature = secp256k1_tr.aggregate_with_tweak(signing, signs, tweaked_pubkey_package, None)
     assert secp256k1_tr.verify_group_signature(
-        signature, message, secp256k1_tr.pubkey_package_tweak(tweaked_pubkey_package, None)
+        signature, message.hex(), secp256k1_tr.pubkey_package_tweak(tweaked_pubkey_package, None)
     )
