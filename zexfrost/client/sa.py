@@ -78,9 +78,15 @@ class SA:
         return result
 
     async def sign(
-        self, route: str, data: SigningData, signing_package: SigningPackage, message: bytes, tweak_by: HexStr | None
+        self,
+        route: str,
+        data: SigningData,
+        commitments: dict[NodeID, Commitment],
+        message: bytes,
+        tweak_by: HexStr | None,
     ) -> HexStr:
         # FIXME: capture and raise desire errors
+        signing_package = self.curve.signing_package_new(commitments, message.hex())
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
@@ -88,7 +94,7 @@ class SA:
                     f"{node.url}{route}",
                     json=SignRequest(
                         data=data,
-                        commitments=signing_package.signing_commitments,
+                        commitments=commitments,
                         tweak_by=tweak_by,
                         curve=self.curve.curve_name,
                         pubkey_package=self.pubkey_package,
