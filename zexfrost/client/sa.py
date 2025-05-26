@@ -13,7 +13,6 @@ from zexfrost.custom_types import (
     SharePackage,
     SigningData,
     SigningPackage,
-    SigningTweakData,
     SignRequest,
     SignTweakRequest,
     WithCustomTweak,
@@ -111,7 +110,7 @@ class SA:
     async def sign_with_tweak(
         self,
         route: str,
-        data: SigningTweakData,
+        data: dict[HexStr, SigningData],
         commitments: dict[NodeID, Commitment],
         message: dict[HexStr, bytes],
     ) -> dict[HexStr, HexStr]:
