@@ -103,6 +103,16 @@ class SigningData(BaseModel):
 class SignRequest(BaseModel):
     pubkey_package: PublicKeyPackage
     curve: Literal["secp256k1_tr"]
-    tweak_by: HexStr | None = None
     data: SigningData
+    commitments: dict[NodeID, Commitment]
+
+
+class SigningTweakData(BaseModel):
+    data: dict[HexStr, dict]  # HexStr is tweak_by
+
+
+class SignTweakRequest(BaseModel):
+    pubkey_package: PublicKeyPackage
+    curve: Literal["secp256k1_tr"]
+    data: SigningTweakData
     commitments: dict[NodeID, Commitment]
