@@ -115,7 +115,7 @@ class SA:
         message: dict[HexStr, bytes],
     ) -> dict[HexStr, HexStr]:
         # FIXME: capture and raise desire errors
-        assert not isinstance(self.curve, WithCustomTweak), "Curve do not support tweak sign."
+        assert isinstance(self.curve, WithCustomTweak), "Curve do not support tweak sign."
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
