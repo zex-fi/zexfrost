@@ -97,21 +97,32 @@ class CommitmentRequest(BaseModel):
     tweak_by: HexStr | None = None
 
 
-type DataID = str
-type SigningMessage = dict[DataID, bytes]
-type SigningData = dict[DataID, dict]
-type CommitmentsWithTweak = dict[TweakBy, dict[DataID, dict[NodeID, Commitment]]]
+type SignatureID = str
+type SigningMessage = dict[SignatureID, bytes]
+type SigningRequest = dict[SignatureID, SigningData]
+type SigningResponse = dict[SignatureID, SharePackage]
 
 
-class SignRequest(BaseModel):
+class SigningData(BaseModel):
     pubkey_package: PublicKeyPackage
     curve: Literal["secp256k1_tr"]
-    data: SigningData
+    data: dict
     commitments: dict[NodeID, Commitment]
+    tweak_by: TweakBy | None = None
 
 
-class SignTweakRequest(BaseModel):
-    pubkey_package: PublicKeyPackage
-    curve: Literal["secp256k1_tr"]
-    data: dict[TweakBy, SigningData]
-    commitments: CommitmentsWithTweak
+class UserSigningData(BaseModel):
+    tweak_by: TweakBy | None = None
+    data: dict
+    message: bytes
+
+    def to_signing_data(
+        self, pubkey_package: PublicKeyPackage, curve: Literal["secp256k1_tr"], commitments: dict[NodeID, Commitment]
+    ) -> SigningData:
+        return SigningData(
+            pubkey_package=pubkey_package,
+            curve=curve,
+            data=self.data,
+            commitments=commitments,
+            tweak_by=self.tweak_by,
+        )
