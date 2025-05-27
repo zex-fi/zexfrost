@@ -1,10 +1,10 @@
 from zexfrost.custom_types import (
     BaseCryptoModule,
     Commitment,
-    HexStr,
     NodeID,
     PublicKeyPackage,
     SharePackage,
+    TweakBy,
     WithCustomTweak,
 )
 
@@ -16,7 +16,7 @@ def commitment(
     pubkey_package: PublicKeyPackage,
     key_repo: KeyRepository,
     nonce_repo: NonceRepository,
-    tweak_by: HexStr | None = None,
+    tweak_by: TweakBy | None = None,
 ) -> Commitment:
     key_package = key_repo.get(pubkey_package.verifying_key)
     assert key_package is not None, "Key not found"
@@ -36,7 +36,7 @@ def sign(
     message: bytes,
     key_repo: KeyRepository,
     nonce_repo: NonceRepository,
-    tweak_by: HexStr | None = None,
+    tweak_by: TweakBy | None = None,
 ) -> SharePackage:
     commitment = commitments[node_id]
     key_package = key_repo.get(pubkey_package.verifying_key)
