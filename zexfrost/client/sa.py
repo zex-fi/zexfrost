@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 
 import httpx
 
@@ -6,6 +7,7 @@ from zexfrost.custom_types import (
     BaseCryptoModule,
     Commitment,
     CommitmentRequest,
+    CommitmentsWithTweak,
     DataID,
     HexStr,
     Node,
@@ -85,10 +87,10 @@ class SA:
         self,
         route: str,
         data: SigningData,
-        commitments: dict[NodeID, Commitment],
         message: bytes,
     ) -> HexStr:
         # FIXME: capture and raise desire errors
+        commitments = await self.commitment(None)
         signing_package = self.curve.signing_package_new(commitments, message.hex())
         tasks = {
             node.id: self.loop.create_task(
@@ -110,15 +112,26 @@ class SA:
         assert self._verify(signature=signature, msg=message), "Signature is invalid"
         return signature
 
+    async def _get_commitments_for_sign_with_tweak(self, data: dict[TweakBy, SigningData]) -> CommitmentsWithTweak:
+        tasks: dict[TweakBy, dict[DataID, asyncio.tasks.Task[dict[NodeID, Commitment]]]] = defaultdict(dict)
+        for tweak_by, _data in data.items():
+            for data_id, _ in _data.items():
+                tasks[tweak_by][data_id] = self.loop.create_task(self.commitment(tweak_by))
+
+        return {
+            tweak_by: {data_id: (await commitments) for data_id, commitments in task.items()}
+            for tweak_by, task in tasks.items()
+        }
+
     async def sign_with_tweak(
         self,
         route: str,
         data: dict[TweakBy, SigningData],
-        commitments: dict[NodeID, Commitment],
         message: dict[TweakBy, SigningMessage],
     ) -> dict[TweakBy, dict[DataID, HexStr]]:
         # FIXME: capture and raise desire errors
         assert isinstance(self.curve, WithCustomTweak), "Curve do not support tweak sign."
+        commitments = await self._get_commitments_for_sign_with_tweak(data)
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
@@ -138,15 +151,15 @@ class SA:
             node_id: {tweak_by: SharePackage(**data) for tweak_by, data in (await task).json().items()}
             for node_id, task in tasks.items()
         }
-        signatures = {}
+        signatures: dict[TweakBy, dict[DataID, HexStr]] = defaultdict(dict)
         for tweak_by, _message in message.items():
             for data_id, _bytes_msg in _message.items():
                 signatures[tweak_by][data_id] = self._aggregate(
-                    signing_package=self.curve.signing_package_new(commitments, _bytes_msg.hex()),
+                    signing_package=self.curve.signing_package_new(commitments[tweak_by][data_id], _bytes_msg.hex()),
                     shares={node_id: shares[tweak_by] for node_id, shares in result.items()},
                     tweak_by=tweak_by,
                 )
                 assert self._verify(
-                    signature=signatures[tweak_by], msg=_bytes_msg, tweak_by=tweak_by
+                    signature=signatures[tweak_by][data_id], msg=_bytes_msg, tweak_by=tweak_by
                 ), "Signature is invalid"
         return signatures
