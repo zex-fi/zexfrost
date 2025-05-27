@@ -20,6 +20,7 @@ from pydantic import BaseModel, HttpUrl
 
 type NodeID = HexStr
 type DKGID = UUID
+type TweakBy = HexStr
 
 
 __all__ = [
@@ -96,8 +97,12 @@ class CommitmentRequest(BaseModel):
     tweak_by: HexStr | None = None
 
 
+type DataID = str
+type SigningMessage = dict[DataID, bytes]
+
+
 class SigningData(BaseModel):
-    data: dict
+    data: dict[DataID, dict]
 
 
 class SignRequest(BaseModel):
@@ -110,5 +115,5 @@ class SignRequest(BaseModel):
 class SignTweakRequest(BaseModel):
     pubkey_package: PublicKeyPackage
     curve: Literal["secp256k1_tr"]
-    data: dict[HexStr, SigningData]
+    data: dict[TweakBy, SigningData]
     commitments: dict[NodeID, Commitment]

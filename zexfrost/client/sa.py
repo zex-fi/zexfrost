@@ -6,15 +6,18 @@ from zexfrost.custom_types import (
     BaseCryptoModule,
     Commitment,
     CommitmentRequest,
+    DataID,
     HexStr,
     Node,
     NodeID,
     PublicKeyPackage,
     SharePackage,
     SigningData,
+    SigningMessage,
     SigningPackage,
     SignRequest,
     SignTweakRequest,
+    TweakBy,
     WithCustomTweak,
 )
 
@@ -110,10 +113,10 @@ class SA:
     async def sign_with_tweak(
         self,
         route: str,
-        data: dict[HexStr, SigningData],
+        data: dict[TweakBy, SigningData],
         commitments: dict[NodeID, Commitment],
-        message: dict[HexStr, bytes],
-    ) -> dict[HexStr, HexStr]:
+        message: dict[TweakBy, SigningMessage],
+    ) -> dict[TweakBy, dict[DataID, HexStr]]:
         # FIXME: capture and raise desire errors
         assert isinstance(self.curve, WithCustomTweak), "Curve do not support tweak sign."
         tasks = {
@@ -137,10 +140,13 @@ class SA:
         }
         signatures = {}
         for tweak_by, _message in message.items():
-            signatures[tweak_by] = self._aggregate(
-                signing_package=self.curve.signing_package_new(commitments, _message.hex()),
-                shares={node_id: shares[tweak_by] for node_id, shares in result.items()},
-                tweak_by=tweak_by,
-            )
-            assert self._verify(signature=signatures[tweak_by], msg=_message, tweak_by=tweak_by), "Signature is invalid"
+            for data_id, _bytes_msg in _message.items():
+                signatures[tweak_by][data_id] = self._aggregate(
+                    signing_package=self.curve.signing_package_new(commitments, _bytes_msg.hex()),
+                    shares={node_id: shares[tweak_by] for node_id, shares in result.items()},
+                    tweak_by=tweak_by,
+                )
+                assert self._verify(
+                    signature=signatures[tweak_by], msg=_bytes_msg, tweak_by=tweak_by
+                ), "Signature is invalid"
         return signatures
