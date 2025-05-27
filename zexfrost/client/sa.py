@@ -7,19 +7,15 @@ from zexfrost.custom_types import (
     BaseCryptoModule,
     Commitment,
     CommitmentRequest,
-    CommitmentsWithTweak,
-    DataID,
     HexStr,
     Node,
     NodeID,
     PublicKeyPackage,
     SharePackage,
-    SigningData,
-    SigningMessage,
+    SignatureID,
     SigningPackage,
-    SignRequest,
-    SignTweakRequest,
     TweakBy,
+    UserSigningData,
     WithCustomTweak,
 )
 
@@ -86,83 +82,54 @@ class SA:
     async def sign(
         self,
         route: str,
-        data: SigningData,
-        message: bytes,
-    ) -> HexStr:
+        user_signing_data: dict[SignatureID, UserSigningData],
+    ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
-        commitments = await self.commitment(None)
-        signing_package = self.curve.signing_package_new(commitments, message.hex())
+
+        sigs_commitments = await self._get_commitments_for_sign(user_signing_data)
+        signing_data = {}
+        signing_request = {}
+        signing_packages = {}
+        for sig_id, sig_data in user_signing_data.items():
+            signing_data[sig_id] = sig_data.to_signing_data(
+                self.pubkey_package, self.curve.curve_name, sigs_commitments[sig_id]
+            )
+            signing_request[sig_id] = signing_data[sig_id].model_dump(mode="json")
+            signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message.hex())
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
                     "POST",
                     f"{node.url}{route}",
-                    json=SignRequest(
-                        data=data,
-                        commitments=commitments,
-                        curve=self.curve.curve_name,
-                        pubkey_package=self.pubkey_package,
-                    ).model_dump(mode="json"),
+                    json=signing_request,
                 )
             )
             for node in self.party
         }
-        result = {node_id: SharePackage(**(await task).json()) for node_id, task in tasks.items()}
-        signature = self._aggregate(signing_package=signing_package, shares=result)
-        assert self._verify(signature=signature, msg=message), "Signature is invalid"
-        return signature
-
-    async def _get_commitments_for_sign_with_tweak(self, data: dict[TweakBy, SigningData]) -> CommitmentsWithTweak:
-        tasks: dict[TweakBy, dict[DataID, asyncio.tasks.Task[dict[NodeID, Commitment]]]] = defaultdict(dict)
-        for tweak_by, _data in data.items():
-            for data_id, _ in _data.items():
-                tasks[tweak_by][data_id] = self.loop.create_task(self.commitment(tweak_by))
-
-        return {
-            tweak_by: {data_id: (await commitments) for data_id, commitments in task.items()}
-            for tweak_by, task in tasks.items()
-        }
-
-    async def sign_with_tweak(
-        self,
-        route: str,
-        data: dict[TweakBy, SigningData],
-        message: dict[TweakBy, SigningMessage],
-    ) -> dict[TweakBy, dict[DataID, HexStr]]:
-        # FIXME: capture and raise desire errors
-        assert isinstance(self.curve, WithCustomTweak), "Curve do not support tweak sign."
-        commitments = await self._get_commitments_for_sign_with_tweak(data)
-        tasks = {
-            node.id: self.loop.create_task(
-                self._send_request(
-                    "POST",
-                    f"{node.url}{route}",
-                    json=SignTweakRequest(
-                        data=data,
-                        commitments=commitments,
-                        curve=self.curve.curve_name,
-                        pubkey_package=self.pubkey_package,
-                    ).model_dump(mode="json"),
-                )
+        nodes_signing_response: dict[SignatureID, dict[NodeID, SharePackage]] = defaultdict(dict)
+        for node_id, task in tasks.items():
+            for sig_id, share_package_data in (await task).json().items():
+                nodes_signing_response[sig_id][node_id] = SharePackage(**share_package_data)
+        signatures = {}
+        for sig_id, nodes_resp in nodes_signing_response.items():
+            signatures[sig_id] = self._aggregate(
+                signing_package=signing_packages[sig_id],
+                shares=nodes_resp,
+                tweak_by=user_signing_data[sig_id].tweak_by,
             )
-            for node in self.party
-        }
-        result = {
-            node_id: {
-                tweak_by: {data_id: SharePackage(**_data) for data_id, _data in data.items()}
-                for tweak_by, data in (await task).json().items()
-            }
-            for node_id, task in tasks.items()
-        }
-        signatures: dict[TweakBy, dict[DataID, HexStr]] = defaultdict(dict)
-        for tweak_by, _message in message.items():
-            for data_id, _bytes_msg in _message.items():
-                signatures[tweak_by][data_id] = self._aggregate(
-                    signing_package=self.curve.signing_package_new(commitments[tweak_by][data_id], _bytes_msg.hex()),
-                    shares={node_id: shares[tweak_by][data_id] for node_id, shares in result.items()},
-                    tweak_by=tweak_by,
-                )
-                assert self._verify(
-                    signature=signatures[tweak_by][data_id], msg=_bytes_msg, tweak_by=tweak_by
-                ), "Signature is invalid"
+
+        for sig_id, signature in signatures.items():
+            assert self._verify(
+                signature=signature,
+                msg=user_signing_data[sig_id].message,
+                tweak_by=user_signing_data[sig_id].tweak_by,
+            ), "Signature is invalid"
         return signatures
+
+    async def _get_commitments_for_sign(
+        self, data: dict[SignatureID, UserSigningData]
+    ) -> dict[SignatureID, dict[NodeID, Commitment]]:
+        tasks: dict[TweakBy, asyncio.tasks.Task[dict[NodeID, Commitment]]] = {}
+        for sig_id, _data in data.items():
+            tasks[sig_id] = self.loop.create_task(self.commitment(_data.tweak_by))
+        return {sig_id: await task for sig_id, task in tasks.items()}
