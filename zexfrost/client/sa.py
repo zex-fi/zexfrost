@@ -148,7 +148,10 @@ class SA:
             for node in self.party
         }
         result = {
-            node_id: {tweak_by: SharePackage(**data) for tweak_by, data in (await task).json().items()}
+            node_id: {
+                tweak_by: {data_id: SharePackage(**_data) for data_id, _data in data.items()}
+                for tweak_by, data in (await task).json().items()
+            }
             for node_id, task in tasks.items()
         }
         signatures: dict[TweakBy, dict[DataID, HexStr]] = defaultdict(dict)
@@ -156,7 +159,7 @@ class SA:
             for data_id, _bytes_msg in _message.items():
                 signatures[tweak_by][data_id] = self._aggregate(
                     signing_package=self.curve.signing_package_new(commitments[tweak_by][data_id], _bytes_msg.hex()),
-                    shares={node_id: shares[tweak_by] for node_id, shares in result.items()},
+                    shares={node_id: shares[tweak_by][data_id] for node_id, shares in result.items()},
                     tweak_by=tweak_by,
                 )
                 assert self._verify(
