@@ -99,10 +99,8 @@ class CommitmentRequest(BaseModel):
 
 type DataID = str
 type SigningMessage = dict[DataID, bytes]
-
-
-class SigningData(BaseModel):
-    data: dict[DataID, dict]
+type SigningData = dict[DataID, dict]
+type CommitmentsWithTweak = dict[TweakBy, dict[DataID, dict[NodeID, Commitment]]]
 
 
 class SignRequest(BaseModel):
@@ -116,4 +114,4 @@ class SignTweakRequest(BaseModel):
     pubkey_package: PublicKeyPackage
     curve: Literal["secp256k1_tr"]
     data: dict[TweakBy, SigningData]
-    commitments: dict[NodeID, Commitment]
+    commitments: CommitmentsWithTweak
