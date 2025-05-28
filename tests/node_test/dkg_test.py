@@ -179,6 +179,7 @@ def test_dkg():
     commitments = {}
     for node in party:
         commitments[node.id] = commitment(
+            node_id=node.id,
             curve=secp256k1_tr,
             pubkey_package=pubkey_package,
             key_repo=key_repositories[node.id],

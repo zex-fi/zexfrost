@@ -120,7 +120,7 @@ class DKG:
 
     @classmethod
     def load_dkg_object(cls, settings: NodeSettings, id: DKGID, repository: DKGRepository) -> "DKG":
-        dkg_data = repository.get(id.hex)
+        dkg_data = repository.get(settings.ID + id.hex)
         if dkg_data is None:
             raise DKGNotFoundError(f"DKG with dkg_id: {id.hex} is not found")
         load_data = {
@@ -163,7 +163,7 @@ class DKG:
                 node_id: package.model_dump(mode="python") for node_id, package in self.partners_round1_packages.items()
             },
         }
-        self.repository.set(self.id.hex, store_data)
+        self.repository.set(self.settings.ID + self.id.hex, store_data)
 
     def round1(self, max_signers: int, min_signers: int) -> DKGRound1NodeResponse:
         result = self.curve.dkg_part1(self.settings.ID, max_signers=max_signers, min_signers=min_signers)
@@ -241,7 +241,9 @@ class DKG:
     def round3(self, round3_data: DKGRound2EncryptedPackage, key_repository: KeyRepository) -> DKGRound3NodeResponse:
         round2_package = self._decrypt_round2_package(self.partners_temp_public_key, round3_data)
         result = self.curve.dkg_part3(self.round2_result.secret_package, self.partners_round1_packages, round2_package)
-        key_repository.set(result.pubkey_package.verifying_key, result.key_package.model_dump(mode="python"))
+        key_repository.set(
+            self.settings.ID + result.pubkey_package.verifying_key, result.key_package.model_dump(mode="python")
+        )
         signature = single_sign_data(
             self.settings.CURVE_NAME,
             self.settings.PRIVATE_KEY,

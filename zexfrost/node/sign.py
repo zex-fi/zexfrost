@@ -14,13 +14,14 @@ from .repository import KeyRepository, NonceRepository
 
 
 def commitment(
+    node_id: NodeID,
     curve: BaseCryptoModule,
     pubkey_package: PublicKeyPackage,
     key_repo: KeyRepository,
     nonce_repo: NonceRepository,
     tweak_by: TweakBy | None = None,
 ) -> Commitment:
-    key_package = PrivateKeyPackage.model_validate(key_repo.get(pubkey_package.verifying_key))
+    key_package = PrivateKeyPackage.model_validate(key_repo.get(node_id + pubkey_package.verifying_key))
     assert key_package is not None, "Key not found"
     match curve:
         case WithCustomTweak():
@@ -41,7 +42,7 @@ def sign(
     tweak_by: TweakBy | None = None,
 ) -> SharePackage:
     commitment = commitments[node_id]
-    key_package = key_repo.get(pubkey_package.verifying_key)
+    key_package = key_repo.get(node_id + pubkey_package.verifying_key)
     assert key_package is not None, "Key not found"
     nonce = nonce_repo.get(f"{commitment.binding}-{commitment.hiding}")
     assert nonce is not None, "Nonce not found"
