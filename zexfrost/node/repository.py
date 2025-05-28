@@ -1,11 +1,10 @@
-from zexfrost.custom_types import Nonce, PrivateKeyPackage
 from zexfrost.repository import RepositoryProtocol
 
 from .custom_types import DKGRepositoryValue
 
 type DKGRepository = RepositoryProtocol[DKGRepositoryValue]
-type KeyRepository = RepositoryProtocol[PrivateKeyPackage]
-type NonceRepository = RepositoryProtocol[Nonce]
+type KeyRepository = RepositoryProtocol[dict]
+type NonceRepository = RepositoryProtocol[dict]
 
 _dkg_repository: DKGRepository | None = None
 _nonce_repository: NonceRepository | None = None

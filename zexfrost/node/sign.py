@@ -2,6 +2,8 @@ from zexfrost.custom_types import (
     BaseCryptoModule,
     Commitment,
     NodeID,
+    Nonce,
+    PrivateKeyPackage,
     PublicKeyPackage,
     SharePackage,
     TweakBy,
@@ -18,13 +20,13 @@ def commitment(
     nonce_repo: NonceRepository,
     tweak_by: TweakBy | None = None,
 ) -> Commitment:
-    key_package = key_repo.get(pubkey_package.verifying_key)
+    key_package = PrivateKeyPackage.model_validate(key_repo.get(pubkey_package.verifying_key))
     assert key_package is not None, "Key not found"
     match curve:
         case WithCustomTweak():
             key_package = curve.key_package_tweak(key_package, tweak_by)
     result = curve.round1_commit(key_package.signing_share)
-    nonce_repo.set(f"{result.commitments.binding}-{result.commitments.hiding}", result.nonces)
+    nonce_repo.set(f"{result.commitments.binding}-{result.commitments.hiding}", result.nonces.model_dump(mode="python"))
     return result.commitments
 
 
@@ -43,6 +45,8 @@ def sign(
     assert key_package is not None, "Key not found"
     nonce = nonce_repo.get(f"{commitment.binding}-{commitment.hiding}")
     assert nonce is not None, "Nonce not found"
+    key_package = PrivateKeyPackage.model_validate(key_package)
+    nonce = Nonce.model_validate(nonce)
     nonce_repo.delete(f"{commitment.binding}-{commitment.hiding}")
     signing_package = curve.signing_package_new(commitments, message.hex())
     match curve:
