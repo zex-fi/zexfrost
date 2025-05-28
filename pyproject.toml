@@ -1,13 +1,13 @@
 [project]
 name = "zexfrost"
-version = "0.7.0"
+version = "0.7.1"
 description = "This is the ZEX implementation of FROST utilizing zcash implementation as the cryptography layer"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "cryptography~=45.0.2",
     "fastapi>=0.115.12",
-    "fastecdsa~=3.0.1",
+    "fastecdsa~=2.3.1",
     "frost-lib",
     "httpx>=0.28.1",
     "pydantic~=2.10.6",
