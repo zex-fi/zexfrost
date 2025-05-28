@@ -241,7 +241,7 @@ class DKG:
     def round3(self, round3_data: DKGRound2EncryptedPackage, key_repository: KeyRepository) -> DKGRound3NodeResponse:
         round2_package = self._decrypt_round2_package(self.partners_temp_public_key, round3_data)
         result = self.curve.dkg_part3(self.round2_result.secret_package, self.partners_round1_packages, round2_package)
-        key_repository.set(result.pubkey_package.verifying_key, result.key_package)
+        key_repository.set(result.pubkey_package.verifying_key, result.key_package.model_dump(mode="python"))
         signature = single_sign_data(
             self.settings.CURVE_NAME,
             self.settings.PRIVATE_KEY,
