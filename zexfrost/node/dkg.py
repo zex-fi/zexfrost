@@ -1,9 +1,8 @@
 import json
 
-from frost_lib.wrapper import BaseCryptoModule
-
 from zexfrost.custom_types import (
     DKGID,
+    BaseCryptoCurve,
     DKGPart1Package,
     DKGPart1Result,
     DKGPart2Package,
@@ -41,7 +40,7 @@ class DKG:
     def __init__(
         self,
         settings: NodeSettings,
-        curve: BaseCryptoModule,
+        curve: BaseCryptoCurve,
         id: DKGID,
         repository: DKGRepository,
         party: tuple[Node, ...],
@@ -54,7 +53,7 @@ class DKG:
         self.settings = settings
         self.curve = curve
         self.id = id
-        self.temp_key = temp_key or Key(curve=curve, private_key=curve.keypair_new()["signing_key"])
+        self.temp_key = temp_key or Key(curve=curve, private_key=curve.keypair_new().signing_key)
         self.repository = repository
         self.partners = tuple(filter(lambda node: node.id != settings.ID, party))
         self._round1_result = round1_result
@@ -67,7 +66,7 @@ class DKG:
             return False
         return (
             self.settings == other.settings
-            and self.curve.curve_name == other.curve.curve_name
+            and self.curve.name == other.curve.name
             and self.id == other.id
             and self.temp_key == other.temp_key
             and self.repository == other.repository
@@ -151,7 +150,7 @@ class DKG:
 
     def store_dkg_object(self):
         store_data: DKGRepositoryValue = {
-            "curve": self.curve.curve_name,
+            "curve": self.curve.name,
             "temp_private_key": self.temp_key._private_key,
             "partners": tuple(node.model_dump(mode="python") for node in self.partners),
             "round1_result": self._round1_result and self.round1_result.model_dump(mode="python"),

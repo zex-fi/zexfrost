@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from frost_lib import secp256k1_tr
-from frost_lib.types import DKGPart2Package
+from frost_lib.custom_types import DKGPart2Package
 
 from zexfrost.custom_types import DKGRound2EncryptedPackage, Node, NodeID
 from zexfrost.key import Key
@@ -175,7 +175,7 @@ def test_dkg():
             assert verifying_key == round3_result.pubkey_package.verifying_key
 
     pubkey_package = round3_result.pubkey_package  # type: ignore
-    tweak_by = b"message".hex()
+    tweak_by = b"message"
     commitments = {}
     for node in party:
         commitments[node.id] = commitment(
@@ -199,9 +199,9 @@ def test_dkg():
             commitments=commitments,
             tweak_by=tweak_by,
         )
-    signing = secp256k1_tr.signing_package_new(commitments, message.hex())
+    signing = secp256k1_tr.signing_package_new(commitments, message)
     tweaked_pubkey_package = secp256k1_tr.pubkey_package_tweak(pubkey_package, tweak_by)
     signature = secp256k1_tr.aggregate_with_tweak(signing, signs, tweaked_pubkey_package, None)
     assert secp256k1_tr.verify_group_signature(
-        signature, message.hex(), secp256k1_tr.pubkey_package_tweak(tweaked_pubkey_package, None)
+        signature, message, secp256k1_tr.pubkey_package_tweak(tweaked_pubkey_package, None)
     )

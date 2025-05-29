@@ -6,7 +6,7 @@ import httpx
 from zexfrost.custom_types import (
     DKGID,
     AnnulmentData,
-    BaseCryptoModule,
+    BaseCryptoCurve,
     DKGRound1NodeResponse,
     DKGRound1Request,
     DKGRound2EncryptedPackage,
@@ -25,7 +25,7 @@ from zexfrost.utils import single_verify_data
 class DKG:
     def __init__(
         self,
-        curve: BaseCryptoModule,
+        curve: BaseCryptoCurve,
         party: tuple[Node, ...],
         max_signers: int,
         min_singers: int,
@@ -63,7 +63,7 @@ class DKG:
                         max_signers=self.max_signers,
                         min_signers=self.min_singers,
                         party_id=[node.id for node in self.party],
-                        curve=self.curve.curve_name,
+                        curve=self.curve.name,
                     ).model_dump(mode="json"),
                 )
             )

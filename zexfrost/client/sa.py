@@ -4,7 +4,8 @@ from collections import defaultdict
 import httpx
 
 from zexfrost.custom_types import (
-    BaseCryptoModule,
+    BaseCryptoCurve,
+    BaseCurveWithTweakedSign,
     Commitment,
     CommitmentRequest,
     HexStr,
@@ -16,14 +17,13 @@ from zexfrost.custom_types import (
     SigningPackage,
     TweakBy,
     UserSigningData,
-    WithCustomTweak,
 )
 
 
 class SA:
     def __init__(
         self,
-        curve: BaseCryptoModule,
+        curve: BaseCryptoCurve,
         party: tuple[Node, ...],
         pubkey_package: PublicKeyPackage,
         http_client: httpx.AsyncClient | None = None,
@@ -43,34 +43,34 @@ class SA:
         return res
 
     def _aggregate(
-        self, signing_package: SigningPackage, shares: dict[NodeID, SharePackage], tweak_by: HexStr | None = None
+        self, signing_package: SigningPackage, shares: dict[NodeID, SharePackage], tweak_by: TweakBy | None = None
     ) -> HexStr:
         match self.curve:
-            case WithCustomTweak():
+            case BaseCurveWithTweakedSign():
                 pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
                 return self.curve.aggregate_with_tweak(signing_package, shares, pubkey_package, None)
-            case BaseCryptoModule():
+            case BaseCryptoCurve():
                 return self.curve.aggregate(signing_package, shares, self.pubkey_package)
         raise NotImplementedError("Curve type is unknown")
 
-    def _verify(self, signature: HexStr, msg: bytes, tweak_by: HexStr | None = None) -> bool:
+    def _verify(self, signature: HexStr, msg: bytes, tweak_by: TweakBy | None = None) -> bool:
         pubkey_package = self.pubkey_package
         match self.curve:
-            case WithCustomTweak():
+            case BaseCurveWithTweakedSign():
                 pubkey_package = self.curve.pubkey_package_tweak(
                     self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
                 )
 
-        return self.curve.verify_group_signature(signature=signature, msg=msg.hex(), pubkey_package=pubkey_package)
+        return self.curve.verify_group_signature(signature=signature, msg=msg, pubkey_package=pubkey_package)
 
-    async def commitment(self, tweak_by: HexStr | None) -> dict[NodeID, Commitment]:
+    async def commitment(self, tweak_by: TweakBy | None) -> dict[NodeID, Commitment]:
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
                     "POST",
                     f"{node.url}sign/commitment",
                     json=CommitmentRequest(
-                        pubkey_package=self.pubkey_package, tweak_by=tweak_by, curve=self.curve.curve_name
+                        pubkey_package=self.pubkey_package, tweak_by=tweak_by, curve=self.curve.name
                     ).model_dump(mode="json"),
                 )
             )
@@ -92,10 +92,10 @@ class SA:
         signing_packages = {}
         for sig_id, sig_data in user_signing_data.items():
             signing_data[sig_id] = sig_data.to_signing_data(
-                self.pubkey_package, self.curve.curve_name, sigs_commitments[sig_id]
+                self.pubkey_package, self.curve.name, sigs_commitments[sig_id]
             )
             signing_request[sig_id] = signing_data[sig_id].model_dump(mode="json")
-            signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message.hex())
+            signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message)
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
@@ -129,7 +129,7 @@ class SA:
     async def _get_commitments_for_sign(
         self, data: dict[SignatureID, UserSigningData]
     ) -> dict[SignatureID, dict[NodeID, Commitment]]:
-        tasks: dict[TweakBy, asyncio.tasks.Task[dict[NodeID, Commitment]]] = {}
+        tasks: dict[HexStr, asyncio.tasks.Task[dict[NodeID, Commitment]]] = {}
         for sig_id, _data in data.items():
             tasks[sig_id] = self.loop.create_task(self.commitment(_data.tweak_by))
         return {sig_id: await task for sig_id, task in tasks.items()}
