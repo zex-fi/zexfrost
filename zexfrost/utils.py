@@ -5,20 +5,22 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from fastecdsa.curve import secp256k1
+from fastecdsa.curve import secp256k1 as fastecdsa_secp256k1
 from fastecdsa.encoding.sec1 import SEC1Encoder
 from fastecdsa.point import Point
-from frost_lib.wrapper import BaseCryptoModule, secp256k1_tr
+from frost_lib import ed25519, secp256k1, secp256k1_tr
 
-from zexfrost.custom_types import HexStr
+from zexfrost.custom_types import BaseCryptoCurve, HexStr
 
-curves_mapping: dict[str, BaseCryptoModule] = {
-    secp256k1_tr.curve_name: secp256k1_tr,
+curves_mapping: dict[str, BaseCryptoCurve] = {
+    secp256k1_tr.name: secp256k1_tr,
+    secp256k1.name: secp256k1,
+    ed25519.name: ed25519,
 }
 
 
-def get_curve(curve: str | BaseCryptoModule) -> BaseCryptoModule:
-    return curve if isinstance(curve, BaseCryptoModule) else curves_mapping[curve]
+def get_curve(curve: str | BaseCryptoCurve) -> BaseCryptoCurve:
+    return curve if isinstance(curve, BaseCryptoCurve) else curves_mapping[curve]
 
 
 def pub_to_code(public_key: Point) -> HexStr:
@@ -28,14 +30,14 @@ def pub_to_code(public_key: Point) -> HexStr:
 
 def code_to_pub(key: HexStr) -> Point:
     key_byte = bytes.fromhex(key)
-    return SEC1Encoder.decode_public_key(key_byte, secp256k1)
+    return SEC1Encoder.decode_public_key(key_byte, fastecdsa_secp256k1)
 
 
 def dict_to_bytes(data: dict) -> bytes:
     return json.dumps(data, sort_keys=True).encode("utf-8")
 
 
-def single_sign_data(curve: BaseCryptoModule | str, private_key: HexStr, data: bytes | dict) -> HexStr:
+def single_sign_data(curve: BaseCryptoCurve | str, private_key: HexStr, data: bytes | dict) -> HexStr:
     """
     Sign data using a private key.
     """
@@ -47,13 +49,11 @@ def single_sign_data(curve: BaseCryptoModule | str, private_key: HexStr, data: b
         case _:
             raise NotImplementedError("Data must be a dict or bytes.")
 
-    result = get_curve(curve).single_sign(private_key, data.hex())
+    result = get_curve(curve).single_sign(private_key, data)
     return result
 
 
-def single_verify_data(
-    curve: BaseCryptoModule | str, public_key: HexStr, data: bytes | dict, signature: HexStr
-) -> bool:
+def single_verify_data(curve: BaseCryptoCurve | str, public_key: HexStr, data: bytes | dict, signature: HexStr) -> bool:
     """
     Verify data using a public key.
     """
@@ -64,7 +64,7 @@ def single_verify_data(
             ...
         case _:
             raise NotImplementedError("Data must be a dict or bytes.")
-    result = get_curve(curve).single_verify(signature, data.hex(), public_key)
+    result = get_curve(curve).single_verify(signature, data, public_key)
     return result
 
 

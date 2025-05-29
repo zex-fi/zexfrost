@@ -1,5 +1,6 @@
 from zexfrost.custom_types import (
-    BaseCryptoModule,
+    BaseCryptoCurve,
+    BaseCurveWithTweakedSign,
     Commitment,
     NodeID,
     Nonce,
@@ -7,7 +8,6 @@ from zexfrost.custom_types import (
     PublicKeyPackage,
     SharePackage,
     TweakBy,
-    WithCustomTweak,
 )
 
 from .repository import KeyRepository, NonceRepository
@@ -15,7 +15,7 @@ from .repository import KeyRepository, NonceRepository
 
 def commitment(
     node_id: NodeID,
-    curve: BaseCryptoModule,
+    curve: BaseCryptoCurve,
     pubkey_package: PublicKeyPackage,
     key_repo: KeyRepository,
     nonce_repo: NonceRepository,
@@ -24,7 +24,7 @@ def commitment(
     key_package = PrivateKeyPackage.model_validate(key_repo.get(node_id + pubkey_package.verifying_key))
     assert key_package is not None, "Key not found"
     match curve:
-        case WithCustomTweak():
+        case BaseCurveWithTweakedSign():
             key_package = curve.key_package_tweak(key_package, tweak_by)
     result = curve.round1_commit(key_package.signing_share)
     nonce_repo.set(f"{result.commitments.binding}-{result.commitments.hiding}", result.nonces.model_dump(mode="python"))
@@ -32,7 +32,7 @@ def commitment(
 
 
 def sign(
-    curve: BaseCryptoModule,
+    curve: BaseCryptoCurve,
     node_id: NodeID,
     pubkey_package: PublicKeyPackage,
     commitments: dict[NodeID, Commitment],
@@ -49,11 +49,11 @@ def sign(
     key_package = PrivateKeyPackage.model_validate(key_package)
     nonce = Nonce.model_validate(nonce)
     nonce_repo.delete(f"{commitment.binding}-{commitment.hiding}")
-    signing_package = curve.signing_package_new(commitments, message.hex())
+    signing_package = curve.signing_package_new(commitments, message)
     match curve:
-        case WithCustomTweak():
+        case BaseCurveWithTweakedSign():
             key_package = curve.key_package_tweak(key_package, tweak_by)
             result = curve.round2_sign_with_tweak(signing_package, nonce, key_package, None)
-        case BaseCryptoModule():
+        case BaseCryptoCurve():
             result = curve.round2_sign(signing_package, nonce, key_package)
     return result

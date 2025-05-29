@@ -12,7 +12,7 @@ class NodeSettings(BaseApplicationSettings):
     model_config = {"env_prefix": "NODE__"}
 
     ID: HexStr
-    CURVE_NAME: Literal["secp256k1_tr"] = Field(default="secp256k1_tr", frozen=True)
+    CURVE_NAME: Literal["secp256k1"] = Field(default="secp256k1", frozen=True)
     PRIVATE_KEY: HexStr
 
 

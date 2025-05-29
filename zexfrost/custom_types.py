@@ -1,7 +1,8 @@
 from typing import Literal
 from uuid import UUID
 
-from frost_lib.types import (
+from frost_lib.abstracts import BaseCryptoCurve, BaseCurveWithTweakedPubkey, BaseCurveWithTweakedSign
+from frost_lib.custom_types import (
     Commitment,
     DKGPart1Package,
     DKGPart1Result,
@@ -15,13 +16,12 @@ from frost_lib.types import (
     SharePackage,
     SigningPackage,
 )
-from frost_lib.wrapper import BaseCryptoModule, WithCustomTweak
 from pydantic import BaseModel, HttpUrl
 
 type NodeID = HexStr
 type DKGID = UUID
-type TweakBy = HexStr
-
+type TweakBy = bytes
+type CurveName = Literal["secp256k1_tr", "secp256k1", "ed25519"]
 
 __all__ = [
     "Node",
@@ -32,13 +32,14 @@ __all__ = [
     "DKGPart2Result",
     "DKGPart3Result",
     "DKGPart2Package",
-    "BaseCryptoModule",
     "PrivateKeyPackage",
-    "WithCustomTweak",
     "Nonce",
     "Commitment",
     "SigningPackage",
     "SharePackage",
+    "BaseCryptoCurve",
+    "BaseCurveWithTweakedPubkey",
+    "BaseCurveWithTweakedSign",
 ]
 
 
@@ -47,7 +48,7 @@ class Node(BaseModel):
     host: str
     port: int
     public_key: HexStr
-    curve_name: Literal["secp256k1_tr"] = "secp256k1_tr"
+    curve_name: Literal["secp256k1"] = "secp256k1"
 
     # @computed_field
     @property
@@ -60,7 +61,7 @@ class DKGRound1Request(BaseModel):
     min_signers: int
     id: DKGID
     party_id: list[NodeID]
-    curve: Literal["secp256k1_tr"]
+    curve: CurveName
 
 
 class DKGRound1NodeResponse(BaseModel):
@@ -93,8 +94,8 @@ class AnnulmentData(BaseModel): ...
 
 class CommitmentRequest(BaseModel):
     pubkey_package: PublicKeyPackage
-    curve: Literal["secp256k1_tr"]
-    tweak_by: HexStr | None = None
+    curve: CurveName
+    tweak_by: TweakBy | None = None
 
 
 type SignatureID = str
@@ -105,7 +106,7 @@ type SigningResponse = dict[SignatureID, SharePackage]
 
 class SigningData(BaseModel):
     pubkey_package: PublicKeyPackage
-    curve: Literal["secp256k1_tr"]
+    curve: CurveName
     data: dict
     commitments: dict[NodeID, Commitment]
     tweak_by: TweakBy | None = None
@@ -117,7 +118,7 @@ class UserSigningData(BaseModel):
     message: bytes
 
     def to_signing_data(
-        self, pubkey_package: PublicKeyPackage, curve: Literal["secp256k1_tr"], commitments: dict[NodeID, Commitment]
+        self, pubkey_package: PublicKeyPackage, curve: CurveName, commitments: dict[NodeID, Commitment]
     ) -> SigningData:
         return SigningData(
             pubkey_package=pubkey_package,

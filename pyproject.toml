@@ -1,6 +1,6 @@
 [project]
 name = "zexfrost"
-version = "0.7.3"
+version = "0.8.0"
 description = "This is the ZEX implementation of FROST utilizing zcash implementation as the cryptography layer"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -78,4 +78,4 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 
 [tool.uv.sources]
-frost-lib = { git = "https://github.com/sadeghte/frost-lib", rev = "feature/add-maturin" }
+frost-lib = { git = "https://github.com/sadeghte/frost-lib-py" }

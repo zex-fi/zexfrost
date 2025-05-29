@@ -1,8 +1,10 @@
 {
     "cSpell.words": [
         "DKGID",
+        "fastecdsa",
         "Fernet",
         "HKDF",
+        "secp",
         "VALUET",
         "zexfrost"
     ],
