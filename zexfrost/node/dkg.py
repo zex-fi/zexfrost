@@ -53,7 +53,7 @@ class DKG:
         self.settings = settings
         self.curve = curve
         self.id = id
-        self.temp_key = temp_key or Key(curve=curve, private_key=curve.keypair_new().signing_key)
+        self.temp_key = temp_key or Key(curve=settings.CURVE_NAME, private_key=curve.keypair_new().signing_key)
         self.repository = repository
         self.partners = tuple(filter(lambda node: node.id != settings.ID, party))
         self._round1_result = round1_result
@@ -132,7 +132,7 @@ class DKG:
             id=id,
             curve=curve,
             party=tuple(Node.model_validate(node) for node in dkg_data["partners"]),
-            temp_key=Key(curve, dkg_data["temp_private_key"]),
+            temp_key=Key(settings.CURVE_NAME, dkg_data["temp_private_key"]),
             repository=repository,
             round1_result=None
             if load_data["round1_result"] is None
