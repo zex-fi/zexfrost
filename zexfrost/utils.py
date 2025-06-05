@@ -1,6 +1,7 @@
 import base64
 import json
 
+import frost_lib
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -8,19 +9,19 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastecdsa.curve import secp256k1 as fastecdsa_secp256k1
 from fastecdsa.encoding.sec1 import SEC1Encoder
 from fastecdsa.point import Point
-from frost_lib import ed25519, secp256k1, secp256k1_tr
 
 from zexfrost.custom_types import BaseCryptoCurve, HexStr
 
-curves_mapping: dict[str, BaseCryptoCurve] = {
-    secp256k1_tr.name: secp256k1_tr,
-    secp256k1.name: secp256k1,
-    ed25519.name: ed25519,
-}
-
 
 def get_curve(curve: str | BaseCryptoCurve) -> BaseCryptoCurve:
-    return curve if isinstance(curve, BaseCryptoCurve) else curves_mapping[curve]
+    if isinstance(curve, BaseCryptoCurve):
+        return curve
+    if hasattr(frost_lib, curve):
+        _curve = getattr(frost_lib, curve)
+        if isinstance(_curve, BaseCryptoCurve):
+            return _curve
+
+    raise ValueError("curve not found.")
 
 
 def pub_to_code(public_key: Point) -> HexStr:
