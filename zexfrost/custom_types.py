@@ -21,7 +21,7 @@ from pydantic import BaseModel, HttpUrl
 type NodeID = HexStr
 type DKGID = UUID
 type TweakBy = bytes
-type CurveName = Literal["secp256k1_tr", "secp256k1", "ed25519"]
+type CurveName = Literal["secp256k1_tr", "secp256k1", "ed25519", "secp256k1_evm"]
 
 __all__ = [
     "Node",
