@@ -15,6 +15,7 @@ from zexfrost.custom_types import (
     SharePackage,
     SignatureID,
     SigningPackage,
+    SigningRequest,
     TweakBy,
     UserSigningData,
 )
@@ -80,28 +81,25 @@ class SA:
         return result
 
     async def sign(
-        self,
-        route: str,
-        user_signing_data: dict[SignatureID, UserSigningData],
+        self, route: str, user_signing_data: dict[SignatureID, UserSigningData], meta_data: dict | None = None
     ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
 
         sigs_commitments = await self._get_commitments_for_sign(user_signing_data)
-        signing_data = {}
-        signing_request = {}
+        signings_data = {}
         signing_packages = {}
         for sig_id, sig_data in user_signing_data.items():
-            signing_data[sig_id] = sig_data.to_signing_data(
+            signings_data[sig_id] = sig_data.to_signing_data(
                 self.pubkey_package, self.curve.name, sigs_commitments[sig_id]
             )
-            signing_request[sig_id] = signing_data[sig_id].model_dump(mode="json")
             signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message)
+        signing_request = SigningRequest(meta_data=meta_data, signings_data=signings_data)
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
                     "POST",
                     f"{node.url}{route}",
-                    json=signing_request,
+                    json=signing_request.model_dump(mode="json"),
                 )
             )
             for node in self.party
