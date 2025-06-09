@@ -100,8 +100,13 @@ class CommitmentRequest(BaseModel):
 
 type SignatureID = str
 type SigningMessage = dict[SignatureID, bytes]
-type SigningRequest = dict[SignatureID, SigningData]
+type SigningsData = dict[SignatureID, SigningData]
 type SigningResponse = dict[SignatureID, SharePackage]
+
+
+class SigningRequest(BaseModel):
+    meta_data: dict | None = None
+    signings_data: SigningsData
 
 
 class SigningData(BaseModel):
