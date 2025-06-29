@@ -106,12 +106,12 @@ type SigningResponse = dict[SignatureID, SharePackage]
 
 class SigningRequest(BaseModel):
     meta_data: dict | None = None
+    pubkey_package: PublicKeyPackage
+    curve: CurveName
     signings_data: SigningsData
 
 
 class SigningData(BaseModel):
-    pubkey_package: PublicKeyPackage
-    curve: CurveName
     data: dict
     commitments: dict[NodeID, Commitment]
     tweak_by: TweakBy | None = None
@@ -122,12 +122,8 @@ class UserSigningData(BaseModel):
     data: dict
     message: bytes
 
-    def to_signing_data(
-        self, pubkey_package: PublicKeyPackage, curve: CurveName, commitments: dict[NodeID, Commitment]
-    ) -> SigningData:
+    def to_signing_data(self, commitments: dict[NodeID, Commitment]) -> SigningData:
         return SigningData(
-            pubkey_package=pubkey_package,
-            curve=curve,
             data=self.data,
             commitments=commitments,
             tweak_by=self.tweak_by,
