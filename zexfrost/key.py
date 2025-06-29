@@ -1,9 +1,9 @@
-from zexfrost.custom_types import BaseCryptoCurve, HexStr
+from zexfrost.custom_types import BaseCryptoCurve, CurveName, HexStr
 from zexfrost.utils import get_curve, single_sign_data
 
 
 class Key:
-    def __init__(self, curve: BaseCryptoCurve | str, private_key: HexStr):
+    def __init__(self, curve: BaseCryptoCurve | CurveName, private_key: HexStr):
         self._private_key = private_key
         self._curve = get_curve(curve)
 

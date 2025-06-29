@@ -1,10 +1,10 @@
 from typing import TypedDict
 
-from zexfrost.custom_types import HexStr, NodeID
+from zexfrost.custom_types import CurveName, HexStr, NodeID
 
 
 class DKGRepositoryValue(TypedDict):
-    curve: str
+    curve: CurveName
     temp_private_key: HexStr
     partners: tuple[dict, ...]
     round1_result: dict | None

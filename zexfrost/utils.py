@@ -10,10 +10,10 @@ from fastecdsa.curve import secp256k1 as fastecdsa_secp256k1
 from fastecdsa.encoding.sec1 import SEC1Encoder
 from fastecdsa.point import Point
 
-from zexfrost.custom_types import BaseCryptoCurve, HexStr
+from zexfrost.custom_types import BaseCryptoCurve, CurveName, HexStr
 
 
-def get_curve(curve: str | BaseCryptoCurve) -> BaseCryptoCurve:
+def get_curve(curve: CurveName | BaseCryptoCurve) -> BaseCryptoCurve:
     if isinstance(curve, BaseCryptoCurve):
         return curve
     if hasattr(frost_lib, curve):
@@ -38,7 +38,7 @@ def dict_to_bytes(data: dict) -> bytes:
     return json.dumps(data, sort_keys=True).encode("utf-8")
 
 
-def single_sign_data(curve: BaseCryptoCurve | str, private_key: HexStr, data: bytes | dict) -> HexStr:
+def single_sign_data(curve: BaseCryptoCurve | CurveName, private_key: HexStr, data: bytes | dict) -> HexStr:
     """
     Sign data using a private key.
     """
@@ -54,7 +54,9 @@ def single_sign_data(curve: BaseCryptoCurve | str, private_key: HexStr, data: by
     return result
 
 
-def single_verify_data(curve: BaseCryptoCurve | str, public_key: HexStr, data: bytes | dict, signature: HexStr) -> bool:
+def single_verify_data(
+    curve: BaseCryptoCurve | CurveName, public_key: HexStr, data: bytes | dict, signature: HexStr
+) -> bool:
     """
     Verify data using a public key.
     """

@@ -89,11 +89,11 @@ class SA:
         signings_data = {}
         signing_packages = {}
         for sig_id, sig_data in user_signing_data.items():
-            signings_data[sig_id] = sig_data.to_signing_data(
-                self.pubkey_package, self.curve.name, sigs_commitments[sig_id]
-            )
+            signings_data[sig_id] = sig_data.to_signing_data(sigs_commitments[sig_id])
             signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message)
-        signing_request = SigningRequest(meta_data=meta_data, signings_data=signings_data)
+        signing_request = SigningRequest(
+            meta_data=meta_data, signings_data=signings_data, pubkey_package=self.pubkey_package, curve=self.curve.name
+        )
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
