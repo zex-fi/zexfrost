@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from frost_lib.abstracts import BaseCryptoCurve, BaseCurveWithTweakedPubkey, BaseCurveWithTweakedSign
@@ -16,11 +16,27 @@ from frost_lib.custom_types import (
     SharePackage,
     SigningPackage,
 )
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, BeforeValidator, HttpUrl, PlainSerializer
+
+
+def bytes_to_hex(value: bytes) -> HexStr:
+    return value.hex()
+
+
+def hex_to_bytes(value: bytes | HexStr) -> bytes:
+    match value:
+        case bytes():
+            return value
+    return bytes.fromhex(value)
+
 
 type NodeID = HexStr
 type DKGID = UUID
-type TweakBy = bytes
+type TweakBy = Annotated[
+    bytes,
+    BeforeValidator(hex_to_bytes, json_schema_input_type=bytes | HexStr),
+    PlainSerializer(bytes_to_hex, return_type=str, when_used="json"),
+]
 type CurveName = Literal["secp256k1_tr", "secp256k1", "ed25519", "secp256k1_evm"]
 
 __all__ = [
