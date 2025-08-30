@@ -23,9 +23,8 @@ def commitment(
 ) -> Commitment:
     key_package = PrivateKeyPackage.model_validate(key_repo.get(node_id + pubkey_package.verifying_key))
     assert key_package is not None, "Key not found"
-    match curve:
-        case BaseCurveWithTweakedSign():
-            key_package = curve.key_package_tweak(key_package, tweak_by)
+    if tweak_by is not None:
+        key_package = curve.key_package_tweak(key_package, tweak_by)
     result = curve.round1_commit(key_package.signing_share)
     nonce_repo.set(f"{result.commitments.binding}-{result.commitments.hiding}", result.nonces.model_dump(mode="python"))
     return result.commitments
@@ -50,9 +49,11 @@ def sign(
     nonce = Nonce.model_validate(nonce)
     nonce_repo.delete(f"{commitment.binding}-{commitment.hiding}")
     signing_package = curve.signing_package_new(commitments, message)
+    if tweak_by is not None:
+        key_package = curve.key_package_tweak(key_package, tweak_by)
+
     match curve:
         case BaseCurveWithTweakedSign():
-            key_package = curve.key_package_tweak(key_package, tweak_by)
             result = curve.round2_sign_with_tweak(signing_package, nonce, key_package, None)
         case BaseCryptoCurve():
             result = curve.round2_sign(signing_package, nonce, key_package)
