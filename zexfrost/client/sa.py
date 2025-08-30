@@ -51,6 +51,8 @@ class SA:
                 pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
                 return self.curve.aggregate_with_tweak(signing_package, shares, pubkey_package, None)
             case BaseCryptoCurve():
+                if tweak_by is not None:
+                    pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
                 return self.curve.aggregate(signing_package, shares, self.pubkey_package)
         raise NotImplementedError("Curve type is unknown")
 
