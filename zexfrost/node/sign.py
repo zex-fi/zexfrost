@@ -49,12 +49,13 @@ def sign(
     nonce = Nonce.model_validate(nonce)
     nonce_repo.delete(f"{commitment.binding}-{commitment.hiding}")
     signing_package = curve.signing_package_new(commitments, message)
-    if tweak_by is not None:
-        key_package = curve.key_package_tweak(key_package, tweak_by)
 
     match curve:
         case BaseCurveWithTweakedSign():
+            key_package = curve.key_package_tweak(key_package, tweak_by)
             result = curve.round2_sign_with_tweak(signing_package, nonce, key_package, None)
         case BaseCryptoCurve():
+            if tweak_by is not None:
+                key_package = curve.key_package_tweak(key_package, tweak_by)
             result = curve.round2_sign(signing_package, nonce, key_package)
     return result
