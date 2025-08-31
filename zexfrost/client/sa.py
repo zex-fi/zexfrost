@@ -46,14 +46,15 @@ class SA:
     def _aggregate(
         self, signing_package: SigningPackage, shares: dict[NodeID, SharePackage], tweak_by: TweakBy | None = None
     ) -> HexStr:
+        pubkey_package = self.pubkey_package
         match self.curve:
             case BaseCurveWithTweakedSign():
-                pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
+                pubkey_package = self.curve.pubkey_package_tweak(pubkey_package, tweak_by)
                 return self.curve.aggregate_with_tweak(signing_package, shares, pubkey_package, None)
             case BaseCryptoCurve():
                 if tweak_by is not None:
-                    pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
-                return self.curve.aggregate(signing_package, shares, self.pubkey_package)
+                    pubkey_package = self.curve.pubkey_package_tweak(pubkey_package, tweak_by)
+                return self.curve.aggregate(signing_package, shares, pubkey_package)
         raise NotImplementedError("Curve type is unknown")
 
     def _verify(self, signature: HexStr, msg: bytes, tweak_by: TweakBy | None = None) -> bool:
@@ -63,6 +64,9 @@ class SA:
                 pubkey_package = self.curve.pubkey_package_tweak(
                     self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
                 )
+            case BaseCryptoCurve():
+                if tweak_by is not None:
+                    pubkey_package = self.curve.pubkey_package_tweak(self.pubkey_package, tweak_by)
 
         return self.curve.verify_group_signature(signature=signature, msg=msg, pubkey_package=pubkey_package)
 
