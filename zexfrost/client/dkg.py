@@ -62,7 +62,7 @@ class DKG:
                         id=self.id,
                         max_signers=self.max_signers,
                         min_signers=self.min_singers,
-                        party_id=[node.id for node in self.party],
+                        party_ids=[node.id for node in self.party],
                         curve=self.curve.name,
                     ).model_dump(mode="json"),
                 )

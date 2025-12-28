@@ -76,7 +76,7 @@ class DKGRound1Request(BaseModel):
     max_signers: int
     min_signers: int
     id: DKGID
-    party_id: list[NodeID]
+    party_ids: list[NodeID]
     curve: CurveName
 
 
