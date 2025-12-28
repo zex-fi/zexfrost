@@ -20,7 +20,7 @@ router = APIRouter(prefix="/dkg", tags=["DKG"])
 
 @router.post("/round1", response_model=DKGRound1NodeResponse)
 def round1(round1_request: DKGRound1Request):
-    party = get_party(round1_request.party_id)
+    party = get_party(round1_request.party_ids)
     dkg = DKG(
         settings=settings,
         curve=get_curve(round1_request.curve),

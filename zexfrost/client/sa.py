@@ -1,4 +1,5 @@
 import asyncio
+import random
 from collections import defaultdict
 
 import httpx
@@ -27,16 +28,30 @@ class SA:
         curve: BaseCryptoCurve,
         party: tuple[Node, ...],
         pubkey_package: PublicKeyPackage,
+        min_signer: int,
         http_client: httpx.AsyncClient | None = None,
         timeout: int = 20,
         loop: asyncio.AbstractEventLoop | None = None,
     ):
         self.curve = curve
-        self.party = party
+        self._party = party
         self.timeout = timeout
         self.pubkey_package = pubkey_package
         self.http_client = http_client or httpx.AsyncClient()
         self.loop = loop or asyncio.get_running_loop()
+        self.min_signer = min_signer
+
+    @property
+    def party(self) -> tuple[Node, ...]:
+        party_len = len(self._party)
+        if party_len == self.min_signer:
+            return self._party
+        if party_len < self.min_signer:
+            raise ValueError(f"min_signer = {self.min_signer} is bigger than party len {party_len}")
+        return tuple(random.sample(self._party, self.min_signer))
+
+    def update_party(self, new_party: tuple[Node, ...]) -> None:
+        self._party = new_party
 
     async def _send_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         res = await self.http_client.request(method, url, **kwargs)
@@ -70,7 +85,7 @@ class SA:
 
         return self.curve.verify_group_signature(signature=signature, msg=msg, pubkey_package=pubkey_package)
 
-    async def commitment(self, tweak_by: TweakBy | None) -> dict[NodeID, Commitment]:
+    async def commitment(self, random_party: tuple[Node, ...], tweak_by: TweakBy | None) -> dict[NodeID, Commitment]:
         tasks = {
             node.id: self.loop.create_task(
                 self._send_request(
@@ -81,17 +96,25 @@ class SA:
                     ).model_dump(mode="json"),
                 )
             )
-            for node in self.party
+            for node in random_party
         }
         result = {node_id: Commitment(**(await task).json()) for node_id, task in tasks.items()}
         return result
+
+    async def _get_commitments_for_sign(
+        self, random_party: tuple[Node, ...], data: dict[SignatureID, UserSigningData]
+    ) -> dict[SignatureID, dict[NodeID, Commitment]]:
+        tasks: dict[HexStr, asyncio.tasks.Task[dict[NodeID, Commitment]]] = {}
+        for sig_id, _data in data.items():
+            tasks[sig_id] = self.loop.create_task(self.commitment(random_party, _data.tweak_by))
+        return {sig_id: await task for sig_id, task in tasks.items()}
 
     async def sign(
         self, route: str, user_signing_data: dict[SignatureID, UserSigningData], meta_data: dict | None = None
     ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
-
-        sigs_commitments = await self._get_commitments_for_sign(user_signing_data)
+        random_party = self.party
+        sigs_commitments = await self._get_commitments_for_sign(random_party, user_signing_data)
         signings_data = {}
         signing_packages = {}
         for sig_id, sig_data in user_signing_data.items():
@@ -108,7 +131,7 @@ class SA:
                     json=signing_request.model_dump(mode="json"),
                 )
             )
-            for node in self.party
+            for node in random_party
         }
         nodes_signing_response: dict[SignatureID, dict[NodeID, SharePackage]] = defaultdict(dict)
         for node_id, task in tasks.items():
@@ -129,11 +152,3 @@ class SA:
                 tweak_by=user_signing_data[sig_id].tweak_by,
             ), "Signature is invalid"
         return signatures
-
-    async def _get_commitments_for_sign(
-        self, data: dict[SignatureID, UserSigningData]
-    ) -> dict[SignatureID, dict[NodeID, Commitment]]:
-        tasks: dict[HexStr, asyncio.tasks.Task[dict[NodeID, Commitment]]] = {}
-        for sig_id, _data in data.items():
-            tasks[sig_id] = self.loop.create_task(self.commitment(_data.tweak_by))
-        return {sig_id: await task for sig_id, task in tasks.items()}
