@@ -41,8 +41,7 @@ class SA:
         self.loop = loop or asyncio.get_running_loop()
         self.min_signer = min_signer
 
-    @property
-    def party(self) -> tuple[Node, ...]:
+    def get_random_party(self) -> tuple[Node, ...]:
         party_len = len(self._party)
         if party_len == self.min_signer:
             return self._party
@@ -113,7 +112,7 @@ class SA:
         self, route: str, user_signing_data: dict[SignatureID, UserSigningData], meta_data: dict | None = None
     ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
-        random_party = self.party
+        random_party = self.get_random_party()
         sigs_commitments = await self._get_commitments_for_sign(random_party, user_signing_data)
         signings_data = {}
         signing_packages = {}
