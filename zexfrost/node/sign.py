@@ -47,11 +47,10 @@ def sign(
     commitment = commitments[node_id]
     key_package = key_repo.get(node_id + pubkey_package.verifying_key)
     assert key_package is not None, "Key not found"
-    nonce = nonce_repo.get(f"{commitment.binding}-{commitment.hiding}")
+    nonce = nonce_repo.pop(f"{commitment.binding}-{commitment.hiding}")
     assert nonce is not None, "Nonce not found"
     key_package = PrivateKeyPackage.model_validate(key_package)
     nonce = Nonce.model_validate(nonce)
-    nonce_repo.delete(f"{commitment.binding}-{commitment.hiding}")
     signing_package = curve.signing_package_new(commitments, message)
     match curve:
         case BaseCurveWithTweakedSign():
