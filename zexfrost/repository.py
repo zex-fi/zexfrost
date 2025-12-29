@@ -3,13 +3,20 @@ from typing import Protocol
 
 class RepositoryProtocol[_VALUET](Protocol):
     def get(self, key: str) -> _VALUET | None:
-        """Get the nonce for a node"""
+        """Get value for the key"""
         ...
 
     def set(self, key: str, value: _VALUET) -> None:
-        """Set the nonce for a node"""
+        """Set value for the key"""
+        ...
+
+    def pop(
+        self,
+        key: str,
+    ) -> _VALUET | None:
+        """Get and delete the value for the key"""
         ...
 
     def delete(self, key: str) -> None:
-        """Delete the nonce for a node"""
+        """Delete the value for the key"""
         ...

@@ -59,12 +59,15 @@ class Repository:
     def get(self, key: str):
         return self.db.get(key)
 
+    def pop(self, key: str):
+        return self.db.pop(key)
+
     def delete(self, key: str):
         del self.db[key]
 
 
 @pytest.fixture
-def dkg_repo():
+def dkg_repo() -> Repository:
     return Repository()
 
 
