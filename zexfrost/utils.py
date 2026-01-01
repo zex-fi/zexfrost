@@ -1,5 +1,6 @@
 import base64
 import json
+import random
 
 import frost_lib
 from cryptography.fernet import Fernet
@@ -10,7 +11,7 @@ from fastecdsa.curve import secp256k1 as fastecdsa_secp256k1
 from fastecdsa.encoding.sec1 import SEC1Encoder
 from fastecdsa.point import Point
 
-from zexfrost.custom_types import BaseCryptoCurve, CurveName, HexStr
+from zexfrost.custom_types import BaseCryptoCurve, CurveName, HexStr, Node
 
 
 def get_curve(curve: CurveName | BaseCryptoCurve) -> BaseCryptoCurve:
@@ -111,3 +112,15 @@ def decrypt_with_joint_key(data: str, secret: HexStr, sender_pubkey: HexStr) -> 
     encryption_joint_key = pub_to_code(int(secret, 16) * code_to_pub(sender_pubkey))
     encryption_key = generate_hkdf_key(encryption_joint_key)
     return decrypt(data, encryption_key)
+
+
+def get_random_party(party: tuple[Node, ...], size: int) -> tuple[Node, ...]:
+    party_len = len(party)
+    if party_len == size:
+        return party
+    if party_len < size:
+        raise ValueError(f"{size=} is bigger than party len {party_len}")
+    weighted_pool = [(random.random() ** (1 / node.random_weight), node) for node in party]
+    weighted_pool.sort(reverse=True)
+    selected = tuple(node for _, node in weighted_pool[:size])
+    return selected
