@@ -1,5 +1,4 @@
 import asyncio
-import random
 from collections import defaultdict
 
 import httpx
@@ -20,6 +19,13 @@ from zexfrost.custom_types import (
     TweakBy,
     UserSigningData,
 )
+from zexfrost.utils import get_random_party
+
+
+class CommitmentGroupError(ExceptionGroup): ...
+
+
+class SignatureGroupError(ExceptionGroup): ...
 
 
 class SA:
@@ -41,21 +47,8 @@ class SA:
         self.loop = loop or asyncio.get_running_loop()
         self.min_signer = min_signer
 
-    def get_random_party(self) -> tuple[Node, ...]:
-        party_len = len(self._party)
-        if party_len == self.min_signer:
-            return self._party
-        if party_len < self.min_signer:
-            raise ValueError(f"min_signer = {self.min_signer} is bigger than party len {party_len}")
-        return tuple(random.sample(self._party, self.min_signer))
-
     def update_party(self, new_party: tuple[Node, ...]) -> None:
         self._party = new_party
-
-    async def _send_request(self, method: str, url: str, **kwargs) -> httpx.Response:
-        res = await self.http_client.request(method, url, **kwargs)
-        res.raise_for_status()
-        return res
 
     def _aggregate(
         self, signing_package: SigningPackage, shares: dict[NodeID, SharePackage], tweak_by: TweakBy | None = None
@@ -85,11 +78,13 @@ class SA:
         return self.curve.verify_group_signature(signature=signature, msg=msg, pubkey_package=pubkey_package)
 
     async def commitment(self, random_party: tuple[Node, ...], tweak_by: TweakBy | None) -> dict[NodeID, Commitment]:
+        exceptions = []
         tasks = {
             node.id: self.loop.create_task(
-                self._send_request(
+                node.send_request(
+                    self.http_client,
                     "POST",
-                    f"{node.url}sign/commitment",
+                    "sign/commitment",
                     json=CommitmentRequest(
                         pubkey_package=self.pubkey_package, tweak_by=tweak_by, curve=self.curve.name
                     ).model_dump(mode="json"),
@@ -97,7 +92,16 @@ class SA:
             )
             for node in random_party
         }
-        result = {node_id: Commitment(**(await task).json()) for node_id, task in tasks.items()}
+        result = {}
+        for node_id, task in tasks.items():
+            try:
+                result[node_id] = Commitment(**(await task).json())
+            except Exception as e:
+                exceptions.append(e)
+
+        if exceptions:
+            raise CommitmentGroupError("Error while trying to get commitment", exceptions)
+
         return result
 
     async def _get_commitments_for_sign(
@@ -112,7 +116,7 @@ class SA:
         self, route: str, user_signing_data: dict[SignatureID, UserSigningData], meta_data: dict | None = None
     ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
-        random_party = self.get_random_party()
+        random_party = get_random_party(self._party, self.min_signer)
         sigs_commitments = await self._get_commitments_for_sign(random_party, user_signing_data)
         signings_data = {}
         signing_packages = {}
@@ -124,18 +128,27 @@ class SA:
         )
         tasks = {
             node.id: self.loop.create_task(
-                self._send_request(
+                node.send_request(
+                    self.http_client,
                     "POST",
-                    f"{node.url}{route}",
+                    route,
                     json=signing_request.model_dump(mode="json"),
                 )
             )
             for node in random_party
         }
         nodes_signing_response: dict[SignatureID, dict[NodeID, SharePackage]] = defaultdict(dict)
+        exceptions = []
         for node_id, task in tasks.items():
-            for sig_id, share_package_data in (await task).json().items():
-                nodes_signing_response[sig_id][node_id] = SharePackage(**share_package_data)
+            try:
+                result = await task
+                result.raise_for_status()
+                for sig_id, share_package_data in result.json().items():
+                    nodes_signing_response[sig_id][node_id] = SharePackage(**share_package_data)
+            except Exception as e:
+                exceptions.append(e)
+        if exceptions:
+            raise SignatureGroupError("Exceptions occurred while trying to sign", exceptions)
         signatures = {}
         for sig_id, nodes_resp in nodes_signing_response.items():
             signatures[sig_id] = self._aggregate(
