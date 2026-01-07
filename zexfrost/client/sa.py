@@ -95,7 +95,9 @@ class SA:
         result = {}
         for node_id, task in tasks.items():
             try:
-                result[node_id] = Commitment(**(await task).json())
+                res = await task
+                res.raise_for_status()
+                result[node_id] = Commitment.model_validate(res.json())
             except Exception as e:
                 exceptions.append(e)
 

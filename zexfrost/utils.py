@@ -120,7 +120,7 @@ def get_random_party(party: tuple[Node, ...], size: int) -> tuple[Node, ...]:
         return party
     if party_len < size:
         raise ValueError(f"{size=} is bigger than party len {party_len}")
-    weighted_pool = [(random.random() ** (1 / node.random_weight), node) for node in party]
+    weighted_pool = [(random.random() ** (1 / node.selection_weight), node) for node in party]
     weighted_pool.sort(reverse=True)
     selected = tuple(node for _, node in weighted_pool[:size])
     return selected
