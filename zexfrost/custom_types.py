@@ -66,12 +66,12 @@ class Node(BaseModel):
     port: int
     public_key: HexStr
     curve_name: Literal["secp256k1"] = "secp256k1"
-    random_weight: float = 10
+    selection_weight: float = 10
     MIN_WEIGHT: ClassVar[float] = 0.1
     ALPHA: ClassVar[float] = 0.7
 
     def _update_random_weight(self, status_code: int, latency_seconds: float):
-        new_weight = self.random_weight
+        new_weight = self.selection_weight
         if 500 <= status_code < 600:
             new_weight *= 0.1
         elif 400 <= status_code < 500:
@@ -80,13 +80,17 @@ class Node(BaseModel):
             performance_score = 1.0 / (latency_seconds + 0.01)
             # Exponential Moving Average (EMA)
             # NewWeight = (OldWeight * (1 - ALPHA)) + (CurrentPerf * ALPHA)
-            new_weight = (self.random_weight * (1 - self.ALPHA)) + (performance_score * self.ALPHA)
-        self.random_weight = max(self.MIN_WEIGHT, new_weight)
+            new_weight = (self.selection_weight * (1 - self.ALPHA)) + (performance_score * self.ALPHA)
+        self.selection_weight = max(self.MIN_WEIGHT, new_weight)
 
     async def send_request(self, client: httpx.AsyncClient, method: str, path: str, **kwargs) -> httpx.Response:
-        res = await client.request(method, f"{self.url}{path}", **kwargs)
-        self._update_random_weight(res.status_code, res.elapsed.total_seconds())
-        return res
+        try:
+            res = await client.request(method, f"{self.url}{path}", **kwargs)
+            self._update_random_weight(res.status_code, res.elapsed.total_seconds())
+            return res
+        except httpx.TransportError:
+            self._update_random_weight(500, 0)
+            raise
 
     @computed_field
     @property
