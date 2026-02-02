@@ -147,7 +147,7 @@ type SigningResponse = dict[SignatureID, SharePackage]
 
 
 class SigningRequest(BaseModel):
-    meta_data: dict | None = None
+    metadata: dict | None = None
     pubkey_package: PublicKeyPackage
     curve: CurveName
     signings_data: SigningsData

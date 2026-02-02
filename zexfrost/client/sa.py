@@ -115,7 +115,7 @@ class SA:
         return {sig_id: await task for sig_id, task in tasks.items()}
 
     async def sign(
-        self, route: str, user_signing_data: dict[SignatureID, UserSigningData], meta_data: dict | None = None
+        self, route: str, user_signing_data: dict[SignatureID, UserSigningData], metadata: dict | None = None
     ) -> dict[SignatureID, HexStr]:
         # FIXME: capture and raise desire errors
         random_party = get_random_party(self._party, self.min_signer)
@@ -126,7 +126,7 @@ class SA:
             signings_data[sig_id] = sig_data.to_signing_data(sigs_commitments[sig_id])
             signing_packages[sig_id] = self.curve.signing_package_new(sigs_commitments[sig_id], sig_data.message)
         signing_request = SigningRequest(
-            meta_data=meta_data, signings_data=signings_data, pubkey_package=self.pubkey_package, curve=self.curve.name
+            metadata=metadata, signings_data=signings_data, pubkey_package=self.pubkey_package, curve=self.curve.name
         )
         tasks = {
             node.id: self.loop.create_task(
