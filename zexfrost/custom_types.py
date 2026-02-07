@@ -17,7 +17,7 @@ from frost_lib.custom_types import (
     SharePackage,
     SigningPackage,
 )
-from pydantic import BaseModel, BeforeValidator, HttpUrl, PlainSerializer, computed_field
+from pydantic import BaseModel, BeforeValidator, HttpUrl, PlainSerializer
 
 
 def bytes_to_hex(value: bytes) -> HexStr:
@@ -92,7 +92,6 @@ class Node(BaseModel):
             self._update_random_weight(500, 0)
             raise
 
-    @computed_field
     @property
     def url(self) -> HttpUrl:
         return HttpUrl(f"{self.host}:{self.port}")
