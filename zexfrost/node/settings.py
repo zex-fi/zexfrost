@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from zexfrost.custom_types import HexStr
+from zexfrost.custom_types import HexStr, NodeID
 from zexfrost.settings import BaseApplicationSettings
 
 
@@ -11,7 +11,7 @@ class NodeSettings(BaseApplicationSettings):
 
     model_config = {"env_prefix": "NODE__"}
 
-    ID: HexStr
+    ID: NodeID
     CURVE_NAME: Literal["secp256k1"] = Field(default="secp256k1", frozen=True)
     PRIVATE_KEY: HexStr
 
