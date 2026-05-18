@@ -115,10 +115,29 @@ class SA:
         return {sig_id: await task for sig_id, task in tasks.items()}
 
     async def sign(
-        self, route: str, user_signing_data: dict[SignatureID, UserSigningData], metadata: dict | None = None
+        self,
+        route: str,
+        user_signing_data: dict[SignatureID, UserSigningData],
+        metadata: dict | None = None,
+        random_party_size: int | None = None,
     ) -> dict[SignatureID, HexStr]:
+        """
+        Sign data using threshold secret sharing.
+
+        Args:
+            route: The endpoint to send signing requests to
+            user_signing_data: Mapping of signature IDs to user signing data
+            metadata: Optional metadata to include in the signing request
+            random_party_size: Number of signers to randomly select (defaults to min_signer)
+
+        Returns:
+            Dictionary mapping signature IDs to their signatures
+        """
         # FIXME: capture and raise desire errors
-        random_party = get_random_party(self._party, self.min_signer)
+        random_party_size = random_party_size or self.min_signer
+        if random_party_size < self.min_signer:
+            raise ValueError(f"random_party_size ({random_party_size}) must be >= min_signer ({self.min_signer})")
+        random_party = get_random_party(self._party, random_party_size)
         sigs_commitments = await self._get_commitments_for_sign(random_party, user_signing_data)
         signings_data = {}
         signing_packages = {}
