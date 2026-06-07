@@ -2,14 +2,12 @@ import base64
 import json
 import random
 
+import coincurve
 import frost_lib
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from fastecdsa.curve import secp256k1 as fastecdsa_secp256k1
-from fastecdsa.encoding.sec1 import SEC1Encoder
-from fastecdsa.point import Point
 
 from zexfrost.custom_types import BaseCryptoCurve, CurveName, HexStr, Node
 
@@ -25,14 +23,12 @@ def get_curve(curve: CurveName | BaseCryptoCurve) -> BaseCryptoCurve:
     raise ValueError("curve not found.")
 
 
-def pub_to_code(public_key: Point) -> HexStr:
-    comp_pub = SEC1Encoder.encode_public_key(public_key, True)
-    return comp_pub.hex()
+def pub_to_code(public_key: coincurve.PublicKey) -> HexStr:
+    return public_key.format(compressed=True).hex()
 
 
-def code_to_pub(key: HexStr) -> Point:
-    key_byte = bytes.fromhex(key)
-    return SEC1Encoder.decode_public_key(key_byte, fastecdsa_secp256k1)
+def code_to_pub(key: HexStr) -> coincurve.PublicKey:
+    return coincurve.PublicKey(bytes.fromhex(key))
 
 
 def dict_to_bytes(data: dict) -> bytes:
@@ -103,13 +99,15 @@ def hexstr_to_int(hexstr: HexStr) -> int:
 
 
 def encrypt_with_joint_key(data: str, secret: HexStr, receiver_pubkey: HexStr) -> str:
-    encryption_joint_key = pub_to_code(int(secret, 16) * code_to_pub(receiver_pubkey))
+    scalar = int(secret, 16).to_bytes(32, "big")
+    encryption_joint_key = pub_to_code(code_to_pub(receiver_pubkey).multiply(scalar))
     encryption_key = generate_hkdf_key(encryption_joint_key)
     return encrypt(data, encryption_key)
 
 
 def decrypt_with_joint_key(data: str, secret: HexStr, sender_pubkey: HexStr) -> str:
-    encryption_joint_key = pub_to_code(int(secret, 16) * code_to_pub(sender_pubkey))
+    scalar = int(secret, 16).to_bytes(32, "big")
+    encryption_joint_key = pub_to_code(code_to_pub(sender_pubkey).multiply(scalar))
     encryption_key = generate_hkdf_key(encryption_joint_key)
     return decrypt(data, encryption_key)
 
